@@ -1089,7 +1089,23 @@
 
   if ('serviceWorker' in navigator){
     window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(){});
+      // updateViaCache:'none' makes the browser bypass HTTP caching when
+      // checking sw.js for changes — GitHub Pages serves everything with
+      // Cache-Control: max-age=600, which would otherwise let a stale
+      // service worker sit for up to 10 minutes before an update is even
+      // considered. reg.update() forces an immediate check on top of the
+      // browser's own periodic one. Once a new worker actually takes
+      // control, reload once so the update shows without a manual
+      // force-quit-and-reopen.
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function(reg){
+        reg.update();
+        var reloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function(){
+          if (reloaded) return;
+          reloaded = true;
+          location.reload();
+        });
+      }).catch(function(){});
     });
   }
 })();
