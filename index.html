@@ -350,6 +350,7 @@
   "use strict";
 
   var STORAGE_KEY = "manifest.packing.v1";
+  var APP_URL = location.origin + location.pathname;
 
   var ICONS = {
     check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
@@ -599,6 +600,7 @@
     if (ui.view === 'home') html = renderHome();
     else if (ui.view === 'trip') html = renderTrip(getTrip(ui.tripId));
     else if (ui.view === 'master') html = renderMasterList();
+    else if (ui.view === 'settings') html = renderSettings();
     app.innerHTML = html;
 
     if (state.modal) renderModal();
@@ -615,7 +617,7 @@
 
     var out = '';
     out += '<div class="topbar"><div class="brand"><h1>Manifest</h1><span class="tag mono eyebrow">packing, sorted</span></div>' +
-      '<button class="icon-link" data-action="open-master" aria-label="Manage master list" title="Manage master list">' + ICONS.gear + '</button></div>';
+      '<button class="icon-link" data-action="open-settings" aria-label="Settings" title="Settings">' + ICONS.gear + '</button></div>';
 
     out += '<button class="btn btn-primary btn-block" data-action="open-new-trip">' + ICONS.plus + ' New Trip</button>';
 
@@ -733,6 +735,23 @@
       '</button>' +
       '<div class="ledger-body">' + (items.length ? rows : '<div class="trip-meta" style="padding:8px 0;">Nothing here yet.</div>') + '</div>' +
     '</div>';
+  }
+
+  function renderSettings(){
+    var out = '';
+    out += '<button class="back-btn" data-action="go-home">← All trips</button>';
+    out += '<div class="topbar" style="margin-top:4px;"><h2 style="font-size:20px;">Settings</h2></div>';
+
+    out += '<div class="section-title" style="margin-top:0;">Master list</div>';
+    out += '<button class="btn btn-secondary btn-block" data-action="open-master" style="justify-content:flex-start;">Manage master list &amp; trip types →</button>';
+
+    out += '<div class="section-title">Share Manifest</div>';
+    out += '<div class="summary-card">' +
+      '<div class="trip-meta">This link opens the app itself — each person who opens it gets their own private checklist on their own device, not a copy of yours.</div>' +
+      '<div class="mono" style="font-size:12.5px; word-break:break-all; padding:10px 12px; background:var(--surface-2); border-radius:8px;">' + esc(APP_URL) + '</div>' +
+      '<button class="btn btn-primary btn-block" data-action="share-app">Share link</button>' +
+    '</div>';
+    return out;
   }
 
   function renderMasterList(){
@@ -889,6 +908,17 @@
     if (action === 'close-modal' || action === 'close-modal-backdrop'){
       if (action === 'close-modal-backdrop' && e.target !== el) return;
       state.modal = null; render(); return;
+    }
+    if (action === 'open-settings'){ state.ui.view = 'settings'; render(); return; }
+    if (action === 'share-app'){
+      if (navigator.share){
+        navigator.share({ title: 'Manifest', text: 'Manifest — a packing checklist app', url: APP_URL }).catch(function(){});
+      } else if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(APP_URL).then(function(){ showToast('Link copied'); }).catch(function(){ showToast('Copy the link above'); });
+      } else {
+        showToast('Copy the link above');
+      }
+      return;
     }
     if (action === 'open-master'){ state.ui.view = 'master'; render(); return; }
     if (action === 'export-master'){ state.modal = { type: 'export', json: JSON.stringify({ tripTypes: state.tripTypes, master: state.master }, null, 2) }; render(); return; }
