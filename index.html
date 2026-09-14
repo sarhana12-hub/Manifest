@@ -228,7 +228,6 @@
   .item-row:last-of-type{ border-bottom:none; }
   .item-row.row-leaving{ opacity:0; pointer-events:none; }
   .item-name{ font-size:15px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-width:0; }
-  .item-name .qty{ font-size:12px; color:var(--ink-muted); flex-shrink:0; }
   .row-actions{ display:flex; gap:8px; flex-shrink:0; }
   .status-btn{
     width:36px; height:36px; border-radius:9px; border:1px solid var(--border);
@@ -276,10 +275,8 @@
   .tpl-item-row:last-of-type{ border-bottom:none; }
   .tpl-item-row-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; }
   .tpl-item-name{ font-size:14.5px; }
-  .tpl-item-meta{ font-size:11.5px; color:var(--ink-muted); }
   .tpl-add-row{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
   .tpl-add-row input[type="text"]{ flex:2; min-width:110px; }
-  .tpl-add-row input[type="number"]{ width:64px; }
   .tpl-add-row button{ background:var(--surface-2); border:1px solid var(--border); border-radius:8px; width:38px; cursor:pointer; font-size:16px; }
   .add-cat-row{ display:flex; gap:8px; margin-top:18px; }
   .add-cat-row input{ flex:1; }
@@ -440,7 +437,7 @@
   function defaultMaster(){
     function item(name, opts){
       opts = opts || {};
-      return { id: uid(), name: name, qty: opts.qty || 1, tags: opts.tags || [] };
+      return { id: uid(), name: name, tags: opts.tags || [] };
     }
     function cat(name, items){ return { id: uid(), name: name, items: items }; }
     return { categories: [
@@ -449,7 +446,7 @@
         item("Chinos"), item("Suit"), item("Socks"), item("Dress Socks"),
         item("Running Shorts"), item("Running Shirt"), item("Running Shoes"),
         item("Casual shirts"), item("Jacket"), item("Sunnies"),
-        item("Thermal base layers", {tags:['cold']}), item("Sweaters", {qty:2, tags:['cold']}),
+        item("Thermal base layers", {tags:['cold']}), item("Sweaters", {tags:['cold']}),
         item("Gloves", {tags:['cold']}), item("Beanie", {tags:['cold']})
       ]),
       cat("Toiletries", [
@@ -458,7 +455,7 @@
         item("Lip balm", {tags:['cold']})
       ]),
       cat("Electronics", [
-        item("Laptop"), item("Laptop charger"), item("Phone charger", {tags:['cold']}), item("Headphones"),
+        item("Laptop"), item("Laptop charger"), item("Phone charger"), item("Headphones"),
         item("Portable battery"), item("Outlet adapter"), item("Watch charger"), item("Workout headphones"), item("Kindle")
       ]),
       cat("Documents & Work", [
@@ -494,7 +491,7 @@
           if (existing){
             if (existing.tags.indexOf(tpl.id) === -1) existing.tags.push(tpl.id);
           } else {
-            mc.items.push({ id: uid(), name: it.name, qty: it.qty || 1, tags: [tpl.id] });
+            mc.items.push({ id: uid(), name: it.name, tags: [tpl.id] });
           }
         });
       });
@@ -592,28 +589,26 @@
     return { packed:packed, ignored:ignored, total:total, pending: total-packed-ignored };
   }
 
+  // An item with no tags is universal and goes on every trip. A tagged item
+  // (e.g. "cold" or "personal") is only included when the trip itself is
+  // tagged with a matching type — tags gate inclusion, not just order.
   function buildTripFromMaster(tripTypeIds, name, start, end){
     var days = daysBetween(start, end);
     var items = [];
     state.master.categories.forEach(function(cat){
       cat.items.forEach(function(it){
-        items.push({ id: uid(), name: it.name, category: cat.name, qty: it.qty || 1, tags: (it.tags || []).slice(), status: 'pending' });
+        var tags = it.tags || [];
+        var isUniversal = tags.length === 0;
+        var isSelected = tags.some(function(t){ return tripTypeIds.indexOf(t) !== -1; });
+        if (isUniversal || isSelected){
+          items.push({ id: uid(), name: it.name, category: cat.name, tags: tags.slice(), status: 'pending' });
+        }
       });
     });
     return { id: uid(), name: name, tripTypeIds: tripTypeIds.slice(), tripTypeNames: tripTypeIds.map(tripTypeName), start: start, end: end, days: days, createdAt: Date.now(), items: items };
   }
-  // Pending items in a category: tagged-relevant ones float to the top,
-  // alphabetical within each group. Recomputed at render time so ad-hoc
-  // additions and undone items always land in the right place.
-  function sortPending(items, trip){
-    var relevant = [], rest = [];
-    items.forEach(function(it){
-      var isRelevant = (it.tags || []).some(function(t){ return trip.tripTypeIds.indexOf(t) !== -1; });
-      (isRelevant ? relevant : rest).push(it);
-    });
-    relevant.sort(byName);
-    rest.sort(byName);
-    return relevant.concat(rest);
+  function sortPending(items){
+    return items.slice().sort(byName);
   }
 
   // ---------- Rendering ----------
@@ -716,7 +711,7 @@
 
     order.forEach(function(catName){
       var items = byCat[catName];
-      var pending = sortPending(items.filter(function(it){ return it.status === 'pending'; }), trip);
+      var pending = sortPending(items.filter(function(it){ return it.status === 'pending'; }));
       out += '<div class="category"><div class="category-head"><span class="eyebrow">' + esc(catName) + '</span></div>';
       if (pending.length === 0){
         out += '<div class="all-done">' + ICONS.check + ' All set in ' + esc(catName) + '</div>';
@@ -739,9 +734,8 @@
   }
 
   function itemRow(it){
-    var qtyBlock = it.qty > 1 ? '<span class="qty mono">×' + it.qty + '</span>' : '';
     return '<div class="item-row" data-row-item="' + it.id + '">' +
-      '<span class="item-name">' + esc(it.name) + qtyBlock + '</span>' +
+      '<span class="item-name">' + esc(it.name) + '</span>' +
       '<span class="row-actions">' +
         '<button class="status-btn pack" data-action="set-status" data-item="' + it.id + '" data-status="packed" aria-label="Mark packed" title="Packed">' + ICONS.check + '</button>' +
         '<button class="status-btn skip" data-action="set-status" data-item="' + it.id + '" data-status="ignored" aria-label="Not needed" title="Not needed">' + ICONS.minus + '</button>' +
@@ -752,7 +746,7 @@
   function ledger(key, tripId, label, items, icon, dotClass){
     var open = state.ui.openLedgers[tripId + ':' + key];
     var rows = items.map(function(it){
-      return '<div class="ledger-row"><span class="pill"><span class="dot ' + dotClass + '"></span><span class="item-label">' + esc(it.name) + (it.qty>1?' <span class="mono" style="color:var(--ink-muted);font-size:12px;">×'+it.qty+'</span>':'') + '</span></span>' +
+      return '<div class="ledger-row"><span class="pill"><span class="dot ' + dotClass + '"></span><span class="item-label">' + esc(it.name) + '</span></span>' +
         '<button class="undo-btn" data-action="set-status" data-item="' + it.id + '" data-status="pending">Undo</button></div>';
     }).join('');
     return '<div class="ledger ' + (open?'open':'') + '">' +
@@ -816,7 +810,6 @@
       cat.items.slice().sort(byName).forEach(function(it){ out += masterItemRow(cat.id, it); });
       out += '<form class="tpl-add-row" data-action="add-master-item" data-cat="' + cat.id + '">' +
         '<input type="text" name="itemName" placeholder="Item name" required>' +
-        '<input type="number" name="qty" placeholder="Qty" min="1" value="1">' +
         '<button type="submit" aria-label="Add item">' + ICONS.plus + '</button>' +
       '</form>';
       out += '<div class="tpl-footer"><span class="trip-meta">Tag items so they surface for the right trips.</span>' +
@@ -828,7 +821,6 @@
   }
 
   function masterItemRow(catId, it){
-    var meta = '×' + it.qty;
     var tags = it.tags || [];
     var tagsHtml = state.tripTypes.map(function(tt){
       var active = tags.indexOf(tt.id) !== -1;
@@ -837,10 +829,7 @@
     return '<div class="tpl-item-row">' +
       '<div class="tpl-item-row-top">' +
         '<span class="tpl-item-name">' + esc(it.name) + '</span>' +
-        '<span style="display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
-          '<span class="tpl-item-meta mono">' + meta + '</span>' +
-          '<button class="icon-x" data-action="delete-master-item" data-cat="' + catId + '" data-item="' + it.id + '" aria-label="Delete item">' + ICONS.x + '</button>' +
-        '</span>' +
+        '<button class="icon-x" data-action="delete-master-item" data-cat="' + catId + '" data-item="' + it.id + '" aria-label="Delete item">' + ICONS.x + '</button>' +
       '</div>' +
       (state.tripTypes.length ? '<div class="chip-row">' + tagsHtml + '</div>' : '') +
     '</div>';
@@ -960,7 +949,7 @@
       if (!src) return;
       var clone = { id: uid(), name: src.name + ' (copy)', tripTypeIds: (src.tripTypeIds||[]).slice(), tripTypeNames: (src.tripTypeNames||[]).slice(),
         start: todayIso(), end: addDaysIso(todayIso(), src.days - 1), days: src.days, createdAt: Date.now(),
-        items: src.items.map(function(it){ return { id: uid(), name: it.name, category: it.category, qty: it.qty, tags: (it.tags||[]).slice(), status: 'pending' }; }) };
+        items: src.items.map(function(it){ return { id: uid(), name: it.name, category: it.category, tags: (it.tags||[]).slice(), status: 'pending' }; }) };
       state.trips.push(clone);
       state.ui.view = 'trip'; state.ui.tripId = clone.id;
       save(); render(); return;
@@ -1056,7 +1045,7 @@
       var input = el.querySelector('input[name="itemName"]');
       var name = (input.value || '').trim();
       if (!trip || !name) return;
-      trip.items.push({ id: uid(), name: name, category: cat, qty: 1, tags: [], status: 'pending' });
+      trip.items.push({ id: uid(), name: name, category: cat, tags: [], status: 'pending' });
       save(); render(); return;
     }
     if (action === 'add-type'){
@@ -1079,8 +1068,7 @@
       var fd = new FormData(el);
       var name4 = (fd.get('itemName') || '').trim();
       if (!name4) return;
-      var qty = Math.max(1, parseInt(fd.get('qty'), 10) || 1);
-      cat2.items.push({ id: uid(), name: name4, qty: qty, tags: [] });
+      cat2.items.push({ id: uid(), name: name4, tags: [] });
       save(); render(); return;
     }
   });
