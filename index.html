@@ -221,16 +221,12 @@
   .item-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding-block:11px; border-bottom:1px solid var(--border);
+    transition:opacity .45s ease;
   }
   .item-row:last-of-type{ border-bottom:none; }
+  .item-row.row-leaving{ opacity:0; pointer-events:none; }
   .item-name{ font-size:15px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-width:0; }
   .item-name .qty{ font-size:12px; color:var(--ink-muted); flex-shrink:0; }
-  .stepper{ display:flex; align-items:center; gap:6px; }
-  .stepper button{
-    width:24px;height:24px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
-    color:var(--ink-muted); cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center;
-  }
-  .stepper button:hover{ color:var(--ink); }
   .row-actions{ display:flex; gap:8px; flex-shrink:0; }
   .status-btn{
     width:36px; height:36px; border-radius:9px; border:1px solid var(--border);
@@ -332,6 +328,17 @@
   .modal-actions{ display:flex; gap:10px; margin-top:6px; }
   .modal-actions .btn{ flex:1; }
 
+  /* ---- Toast ---- */
+  .toast{
+    position:fixed; left:50%; bottom:calc(28px + env(safe-area-inset-bottom, 0px));
+    transform:translateX(-50%) translateY(10px);
+    background:var(--ink); color:var(--bg); font-size:13.5px; font-weight:600;
+    padding:11px 20px; border-radius:999px; box-shadow:var(--shadow);
+    opacity:0; transition:opacity .25s ease, transform .25s ease;
+    z-index:100; pointer-events:none; max-width:calc(100% - 40px); text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
   svg{ display:block; }
 </style>
 </head>
@@ -363,6 +370,26 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+  }
+  function byName(a, b){
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  }
+  var toastTimer = null;
+  function showToast(message){
+    var el = document.getElementById('toast');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      el.setAttribute('aria-live', 'polite');
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1600);
   }
 
   function defaultTripTypes(){
@@ -542,16 +569,24 @@
     var days = daysBetween(start, end);
     var items = [];
     state.master.categories.forEach(function(cat){
-      var relevant = [], rest = [];
       cat.items.forEach(function(it){
-        var tags = it.tags || [];
-        var isRelevant = tags.some(function(t){ return tripTypeIds.indexOf(t) !== -1; });
-        var built = { id: uid(), name: it.name, category: cat.name, qty: it.qty || 1, tags: tags.slice(), status: 'pending' };
-        (isRelevant ? relevant : rest).push(built);
+        items.push({ id: uid(), name: it.name, category: cat.name, qty: it.qty || 1, tags: (it.tags || []).slice(), status: 'pending' });
       });
-      items = items.concat(relevant, rest);
     });
     return { id: uid(), name: name, tripTypeIds: tripTypeIds.slice(), tripTypeNames: tripTypeIds.map(tripTypeName), start: start, end: end, days: days, createdAt: Date.now(), items: items };
+  }
+  // Pending items in a category: tagged-relevant ones float to the top,
+  // alphabetical within each group. Recomputed at render time so ad-hoc
+  // additions and undone items always land in the right place.
+  function sortPending(items, trip){
+    var relevant = [], rest = [];
+    items.forEach(function(it){
+      var isRelevant = (it.tags || []).some(function(t){ return trip.tripTypeIds.indexOf(t) !== -1; });
+      (isRelevant ? relevant : rest).push(it);
+    });
+    relevant.sort(byName);
+    rest.sort(byName);
+    return relevant.concat(rest);
   }
 
   // ---------- Rendering ----------
@@ -653,7 +688,7 @@
 
     order.forEach(function(catName){
       var items = byCat[catName];
-      var pending = items.filter(function(it){ return it.status === 'pending'; });
+      var pending = sortPending(items.filter(function(it){ return it.status === 'pending'; }), trip);
       out += '<div class="category"><div class="category-head"><span class="eyebrow">' + esc(catName) + '</span></div>';
       if (pending.length === 0){
         out += '<div class="all-done">' + ICONS.check + ' All set in ' + esc(catName) + '</div>';
@@ -676,15 +711,8 @@
   }
 
   function itemRow(it){
-    var qtyBlock = '';
-    if (it.qty > 1){
-      qtyBlock = '<span class="qty mono">×' + it.qty + '</span>' +
-        '<span class="stepper">' +
-          '<button data-action="qty-dec" data-item="' + it.id + '" aria-label="Decrease quantity">−</button>' +
-          '<button data-action="qty-inc" data-item="' + it.id + '" aria-label="Increase quantity">+</button>' +
-        '</span>';
-    }
-    return '<div class="item-row">' +
+    var qtyBlock = it.qty > 1 ? '<span class="qty mono">×' + it.qty + '</span>' : '';
+    return '<div class="item-row" data-row-item="' + it.id + '">' +
       '<span class="item-name">' + esc(it.name) + qtyBlock + '</span>' +
       '<span class="row-actions">' +
         '<button class="status-btn pack" data-action="set-status" data-item="' + it.id + '" data-status="packed" aria-label="Mark packed" title="Packed">' + ICONS.check + '</button>' +
@@ -738,7 +766,7 @@
     '</div>';
     if (open){
       out += '<div class="tpl-body">';
-      cat.items.forEach(function(it){ out += masterItemRow(cat.id, it); });
+      cat.items.slice().sort(byName).forEach(function(it){ out += masterItemRow(cat.id, it); });
       out += '<form class="tpl-add-row" data-action="add-master-item" data-cat="' + cat.id + '">' +
         '<input type="text" name="itemName" placeholder="Item name" required>' +
         '<input type="number" name="qty" placeholder="Qty" min="1" value="1">' +
@@ -893,15 +921,18 @@
       if (!trip) return;
       var it = findItem(trip, el.getAttribute('data-item'));
       if (!it) return;
-      it.status = el.getAttribute('data-status');
-      save(); render(); return;
-    }
-    if (action === 'qty-inc' || action === 'qty-dec'){
-      var trip2 = getTrip(state.ui.tripId);
-      if (!trip2) return;
-      var it2 = findItem(trip2, el.getAttribute('data-item'));
-      if (!it2) return;
-      it2.qty = Math.max(1, (it2.qty||1) + (action === 'qty-inc' ? 1 : -1));
+      var newStatus = el.getAttribute('data-status');
+      if (newStatus === 'ignored' && it.status === 'pending'){
+        var row = el.closest('.item-row');
+        if (row) row.classList.add('row-leaving');
+        showToast('Item set aside');
+        setTimeout(function(){
+          it.status = 'ignored';
+          save(); render();
+        }, 550);
+        return;
+      }
+      it.status = newStatus;
       save(); render(); return;
     }
     if (action === 'toggle-ledger'){
