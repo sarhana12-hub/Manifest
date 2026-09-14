@@ -916,9 +916,10 @@
 
     if (m.type === 'export'){
       box.innerHTML = '<h2>Export master list</h2>' +
-        '<p class="trip-meta" style="margin-bottom:10px;">Select all, copy, and send this to Claude to lock it in as the app\'s built-in defaults.</p>' +
-        '<textarea id="exportBox" readonly style="width:100%;height:280px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);">' + esc(m.json) + '</textarea>' +
-        '<div class="modal-actions"><button type="button" class="btn btn-primary" data-action="close-modal">Done</button></div>';
+        '<p class="trip-meta" style="margin-bottom:10px;">Copy this and send it to Claude to lock it in as the app\'s built-in defaults.</p>' +
+        '<button type="button" class="btn btn-primary btn-block" data-action="copy-export" style="margin-bottom:10px;">Copy all</button>' +
+        '<textarea id="exportBox" readonly style="width:100%;height:240px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);">' + esc(m.json) + '</textarea>' +
+        '<div class="modal-actions"><button type="button" class="btn btn-secondary btn-block" data-action="close-modal">Done</button></div>';
     }
 
     backdrop.appendChild(box);
@@ -1015,6 +1016,12 @@
     }
     if (action === 'open-master'){ state.ui.view = 'master'; render(); return; }
     if (action === 'export-master'){ state.modal = { type: 'export', json: JSON.stringify({ tripTypes: state.tripTypes, master: state.master }, null, 2) }; render(); return; }
+    if (action === 'copy-export'){
+      var exportJson = state.modal && state.modal.json;
+      if (!exportJson) return;
+      copyToClipboard(exportJson).then(function(){ showToast('Copied — paste it to Claude'); }).catch(function(){ showToast('Could not copy — select the text below'); });
+      return;
+    }
     if (action === 'go-home'){ state.ui.view = 'home'; state.ui.tripId = null; render(); return; }
     if (action === 'open-trip'){ state.ui.view = 'trip'; state.ui.tripId = el.getAttribute('data-id'); render(); return; }
     if (action === 'open-edit-trip'){
