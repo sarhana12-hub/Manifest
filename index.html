@@ -866,7 +866,6 @@
     backdrop.setAttribute('data-action', 'close-modal-backdrop');
     var box = document.createElement('div');
     box.className = 'modal';
-    box.addEventListener('click', function(e){ e.stopPropagation(); });
 
     if (m.type === 'newTrip'){
       var start = todayIso();
