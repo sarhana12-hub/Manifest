@@ -372,7 +372,8 @@
     trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
     gear: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>',
     plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
-    x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'
+    x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>'
   };
 
   function uid(){
@@ -611,6 +612,27 @@
     return items.slice().sort(byName);
   }
 
+  // Adds any master-list item that newly qualifies under trip.tripTypeIds
+  // (universal, or tagged with a now-selected type) and isn't already on the
+  // trip. Never removes anything already there — editing a trip's types is
+  // additive only, so packed/ignored decisions are never disturbed.
+  function syncTripWithMaster(trip){
+    var existingKeys = {};
+    trip.items.forEach(function(it){ existingKeys[it.category + '|' + it.name.toLowerCase()] = true; });
+    state.master.categories.forEach(function(cat){
+      cat.items.forEach(function(it){
+        var tags = it.tags || [];
+        var isUniversal = tags.length === 0;
+        var isSelected = tags.some(function(t){ return trip.tripTypeIds.indexOf(t) !== -1; });
+        var key = cat.name + '|' + it.name.toLowerCase();
+        if ((isUniversal || isSelected) && !existingKeys[key]){
+          trip.items.push({ id: uid(), name: it.name, category: cat.name, tags: tags.slice(), status: 'pending' });
+          existingKeys[key] = true;
+        }
+      });
+    });
+  }
+
   // ---------- Rendering ----------
   var app = document.getElementById('app');
 
@@ -690,7 +712,8 @@
     out += '<button class="back-btn" data-action="go-home">← All trips</button>';
     out += '<div class="trip-header"><div class="trip-header-top">' +
       '<div><h2>' + esc(trip.name) + '</h2><div class="trip-meta mono">' + esc(fmtRange(trip.start, trip.end)) + ' · ' + trip.days + (trip.days===1?' day':' days') + ' · ' + esc(tripBadge(trip)) + '</div></div>' +
-      '<div class="card-actions"><button class="icon-link" data-action="clone-trip" data-id="' + trip.id + '" aria-label="Clone trip" title="Clone">' + ICONS.copy + '</button>' +
+      '<div class="card-actions"><button class="icon-link" data-action="open-edit-trip" data-id="' + trip.id + '" aria-label="Edit trip" title="Edit trip">' + ICONS.edit + '</button>' +
+      '<button class="icon-link" data-action="clone-trip" data-id="' + trip.id + '" aria-label="Clone trip" title="Clone">' + ICONS.copy + '</button>' +
       '<button class="icon-link" data-action="delete-trip" data-id="' + trip.id + '" aria-label="Delete trip" title="Delete">' + ICONS.trash + '</button></div>' +
     '</div>';
     out += '<div class="summary-card">' +
@@ -869,6 +892,29 @@
         '</form>';
     }
 
+    if (m.type === 'editTrip'){
+      var editTrip = getTrip(m.tripId);
+      box.innerHTML = '<h2>Edit trip</h2>' +
+        '<form id="edit-trip-form">' +
+          '<label class="field" style="margin-bottom:8px;">Trip type <span class="trip-meta" style="display:inline;">(optional — pick any that apply)</span></label>' +
+          '<div class="type-pick">' + (state.tripTypes.length ? state.tripTypes.map(function(tt){
+            var checked = editTrip.tripTypeIds.indexOf(tt.id) !== -1;
+            return '<label><input type="checkbox" name="tripTypes" value="' + tt.id + '"' + (checked ? ' checked' : '') + '><span class="chip">' + esc(tt.name) + '</span></label>';
+          }).join('') : '<span class="type-pick-empty">No trip types yet — add some from the Master List.</span>') + '</div>' +
+          '<div class="trip-meta" style="margin-bottom:14px;">Adding a type brings in any newly-relevant items — nothing already on your list gets removed.</div>' +
+          '<label class="field">Trip name<input type="text" name="tripName" value="' + esc(editTrip.name) + '" required></label>' +
+          '<div class="date-row">' +
+            '<label class="field">Start<input type="date" id="etStart" name="start" value="' + editTrip.start + '" required></label>' +
+            '<label class="field">End<input type="date" id="etEnd" name="end" value="' + editTrip.end + '" required></label>' +
+          '</div>' +
+          '<div class="days-preview mono" id="etDaysPreview">' + editTrip.days + (editTrip.days===1?' day':' days') + '</div>' +
+          '<div class="modal-actions">' +
+            '<button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>' +
+            '<button type="submit" class="btn btn-primary">Save changes</button>' +
+          '</div>' +
+        '</form>';
+    }
+
     if (m.type === 'export'){
       box.innerHTML = '<h2>Export master list</h2>' +
         '<p class="trip-meta" style="margin-bottom:10px;">Select all, copy, and send this to Claude to lock it in as the app\'s built-in defaults.</p>' +
@@ -908,6 +954,35 @@
         save(); render();
       });
     }
+
+    if (m.type === 'editTrip'){
+      var etSEl = box.querySelector('#etStart'), etEEl = box.querySelector('#etEnd'), etPEl = box.querySelector('#etDaysPreview');
+      function updateEtPreview(){
+        var d = daysBetween(etSEl.value, etEEl.value);
+        etPEl.textContent = d + (d===1?' day':' days');
+      }
+      etSEl.addEventListener('input', updateEtPreview);
+      etEEl.addEventListener('input', updateEtPreview);
+      box.querySelector('#edit-trip-form').addEventListener('submit', function(e){
+        e.preventDefault();
+        var trip = getTrip(m.tripId);
+        if (!trip){ state.modal = null; render(); return; }
+        var fd = new FormData(e.target);
+        var tripTypeIds = fd.getAll('tripTypes');
+        var name = (fd.get('tripName') || '').trim() || trip.name;
+        var start = fd.get('start'), end = fd.get('end');
+        if (end < start) end = start;
+        trip.name = name;
+        trip.start = start;
+        trip.end = end;
+        trip.days = daysBetween(start, end);
+        trip.tripTypeIds = tripTypeIds;
+        trip.tripTypeNames = tripTypeIds.map(tripTypeName);
+        syncTripWithMaster(trip);
+        state.modal = null;
+        save(); render();
+      });
+    }
   }
 
   // ---------- Actions ----------
@@ -943,6 +1018,13 @@
     if (action === 'export-master'){ state.modal = { type: 'export', json: JSON.stringify({ tripTypes: state.tripTypes, master: state.master }, null, 2) }; render(); return; }
     if (action === 'go-home'){ state.ui.view = 'home'; state.ui.tripId = null; render(); return; }
     if (action === 'open-trip'){ state.ui.view = 'trip'; state.ui.tripId = el.getAttribute('data-id'); render(); return; }
+    if (action === 'open-edit-trip'){
+      var editId = el.getAttribute('data-id');
+      if (!getTrip(editId)) return;
+      state.modal = { type: 'editTrip', tripId: editId };
+      render();
+      return;
+    }
 
     if (action === 'clone-trip'){
       var src = getTrip(el.getAttribute('data-id'));
