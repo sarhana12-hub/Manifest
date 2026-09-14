@@ -1,7 +1,7 @@
 {
   "name": "Manifest",
   "short_name": "Manifest",
-  "description": "A personal packing checklist — build trips from reusable templates, then mark each item Packed or Not needed.",
+  "description": "A personal packing checklist — one tagged master list, sorted by trip type, then mark each item Packed or Not needed.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

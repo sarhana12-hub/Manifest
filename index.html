@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Manifest</title>
-<meta name="description" content="A personal packing checklist — build trips from reusable templates, then mark each item Packed or Not needed.">
+<meta name="description" content="A personal packing checklist — one tagged master list, sorted by trip type, then mark each item Packed or Not needed.">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
@@ -267,7 +267,7 @@
   .ledger-row .item-label{ overflow-wrap:anywhere; }
   .undo-btn{ background:none; border:none; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0; padding:4px; }
 
-  /* ---- Templates view ---- */
+  /* ---- Master List view ---- */
   .tpl-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:14px; overflow:hidden; }
   .tpl-head{ display:flex; justify-content:space-between; align-items:center; padding:14px 16px; cursor:pointer; }
   .tpl-head h3{ font-size:16px; }
@@ -275,8 +275,9 @@
   .tpl-body{ padding:0 16px 16px; border-top:1px solid var(--border); }
   .tpl-cat{ margin-top:16px; }
   .tpl-cat-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-  .tpl-item-row{ display:flex; justify-content:space-between; align-items:center; padding-block:8px; border-bottom:1px solid var(--border); gap:8px; }
+  .tpl-item-row{ display:flex; flex-direction:column; gap:8px; padding-block:12px; border-bottom:1px solid var(--border); }
   .tpl-item-row:last-of-type{ border-bottom:none; }
+  .tpl-item-row-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; }
   .tpl-item-name{ font-size:14.5px; }
   .tpl-item-meta{ font-size:11.5px; color:var(--ink-muted); }
   .tpl-add-row{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
@@ -290,6 +291,22 @@
   .tpl-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
   .icon-x{ background:none; border:none; color:var(--ink-muted); cursor:pointer; width:26px; height:26px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:6px; }
   .icon-x:hover{ color:var(--danger); background:var(--danger-soft); }
+
+  /* ---- Tags / trip types ---- */
+  .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    display:inline-flex; align-items:center; font-size:11.5px; font-weight:600;
+    padding:5px 10px; border-radius:999px; border:1px solid var(--border);
+    background:var(--surface); color:var(--ink-muted); cursor:pointer; white-space:nowrap;
+  }
+  .chip.active{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong); }
+  .type-manage-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .type-tag{
+    display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:600;
+    padding:6px 6px 6px 12px; border-radius:999px; background:var(--surface-2); color:var(--ink);
+  }
+  .type-tag button{ background:none; border:none; color:var(--ink-muted); cursor:pointer; width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+  .type-tag button:hover{ color:var(--danger); background:var(--danger-soft); }
 
   /* ---- Modal ---- */
   .modal-backdrop{
@@ -305,16 +322,11 @@
   @media (min-width:520px){ .modal{ border-radius:16px; border-bottom:1px solid var(--border); } }
   .modal h2{ font-size:19px; margin-bottom:16px; }
   .modal .field{ margin-bottom:14px; }
-  .tpl-pick{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
-  @media (max-width:360px){ .tpl-pick{ grid-template-columns:1fr; } }
-  .tpl-pick label{ position:relative; cursor:pointer; }
-  .tpl-pick input{ position:absolute; opacity:0; }
-  .tpl-pick .card{
-    border:1.5px solid var(--border); border-radius:11px; padding:12px; background:var(--surface);
-    font-size:13.5px; font-weight:600;
-  }
-  .tpl-pick .card .n{ display:block; font-size:11px; font-weight:500; color:var(--ink-muted); margin-top:3px; }
-  .tpl-pick input:checked + .card{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent-strong); }
+  .type-pick{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .type-pick label{ position:relative; cursor:pointer; }
+  .type-pick input{ position:absolute; opacity:0; width:16px; height:16px; }
+  .type-pick input:checked + .chip{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong); }
+  .type-pick-empty{ font-size:13px; color:var(--ink-muted); }
   .date-row{ display:flex; gap:10px; }
   .date-row .field{ flex:1; }
   .days-preview{ font-size:12.5px; color:var(--ink-muted); margin-top:-6px; margin-bottom:14px; }
@@ -354,53 +366,123 @@
     });
   }
 
-  function defaultTemplates(){
-    function cat(name, items){ return { id: uid(), name: name, items: items.map(function(it){
-      return { id: uid(), name: it[0], qty: it[1] || 1, scales: !!it[2], perDay: it[2] || 1 };
-    }) }; }
+  function defaultTripTypes(){
     return [
-      { id: uid(), name: "Business Trip", categories: [
-        cat("Clothing", [["Dress shirts",1,1],["Undershirts",1,1],["Underwear",1,1],["Socks (pairs)",1,1],["Slacks",2],["Blazer",1],["Belt",1],["Dress shoes",1],["Pajamas",1]]),
-        cat("Toiletries", [["Toothbrush & toothpaste",1],["Deodorant",1],["Shaving kit",1],["Contacts / glasses",1],["Medications",1]]),
-        cat("Electronics", [["Laptop",1],["Laptop charger",1],["Phone charger",1],["Headphones",1],["Portable battery",1],["Outlet adapter",1]]),
-        cat("Documents & Work", [["ID / passport",1],["Boarding pass",1],["Hotel confirmation",1],["Business cards",1],["Notebook & pen",1],["Company badge",1]])
-      ]},
-      { id: uid(), name: "Beach Vacation", categories: [
-        cat("Clothing", [["Swimsuits",2],["T-shirts",1,1],["Shorts",1,1],["Sundress / light outfit",1],["Flip-flops",1],["Sun hat",1],["Cover-up",1],["Pajamas",1]]),
-        cat("Sun & Skin", [["Sunscreen",1],["After-sun lotion",1],["Sunglasses",1],["Lip balm with SPF",1]]),
-        cat("Electronics", [["Phone charger",1],["Waterproof phone pouch",1],["Camera",1],["Portable speaker",1]]),
-        cat("Documents", [["ID / passport",1],["Boarding pass",1],["Hotel confirmation",1],["Travel insurance card",1]]),
-        cat("Beach Gear", [["Beach towel",1],["Beach bag",1],["Snorkel set",1],["Book / e-reader",1]])
-      ]},
-      { id: uid(), name: "Cold Weather / Ski", categories: [
-        cat("Clothing", [["Thermal base layers",1,1],["Wool socks (pairs)",1,1],["Sweaters",2],["Ski jacket",1],["Ski pants",1],["Gloves",1],["Beanie",1],["Scarf",1],["Snow boots",1]]),
-        cat("Toiletries", [["Lip balm",1],["Heavy moisturizer",1],["Toothbrush & toothpaste",1]]),
-        cat("Electronics", [["Phone charger",1],["Action camera",1]]),
-        cat("Documents", [["ID / passport",1],["Lift tickets / reservation",1],["Travel insurance card",1]]),
-        cat("Gear", [["Ski goggles",1],["Hand warmers",1],["Ski / board bag",1],["Helmet",1]])
-      ]},
-      { id: uid(), name: "Weekend Getaway", categories: [
-        cat("Clothing", [["Outfits",1,1],["Pajamas",1],["Underwear",1,1],["Socks (pairs)",1,1]]),
-        cat("Toiletries", [["Toothbrush & toothpaste",1],["Deodorant",1],["Skincare basics",1]]),
-        cat("Electronics", [["Phone charger",1],["Headphones",1]]),
-        cat("Documents", [["ID",1],["Reservation confirmation",1]]),
-        cat("Extras", [["Snacks for the road",1],["Water bottle",1]])
-      ]}
+      { id: 'business', name: 'Business' },
+      { id: 'beach', name: 'Beach' },
+      { id: 'cold', name: 'Cold Weather / Ski' },
+      { id: 'weekend', name: 'Weekend' }
     ];
   }
+
+  function defaultMaster(){
+    function item(name, opts){
+      opts = opts || {};
+      return { id: uid(), name: name, qty: opts.qty || 1, scales: !!opts.perDay, perDay: opts.perDay || 1, tags: opts.tags || [] };
+    }
+    function cat(name, items){ return { id: uid(), name: name, items: items }; }
+    return { categories: [
+      cat("Clothing", [
+        item("Underwear", {perDay:1}), item("Socks (pairs)", {perDay:1}), item("Pajamas", {}),
+        item("Dress shirts", {perDay:1, tags:['business']}), item("Undershirts", {perDay:1, tags:['business']}),
+        item("Slacks", {qty:2, tags:['business']}), item("Blazer", {tags:['business']}), item("Belt", {tags:['business']}), item("Dress shoes", {tags:['business']}),
+        item("Casual outfits", {perDay:1, tags:['weekend']}),
+        item("Swimsuits", {qty:2, tags:['beach']}), item("T-shirts", {perDay:1, tags:['beach']}), item("Shorts", {perDay:1, tags:['beach']}),
+        item("Sundress / light outfit", {tags:['beach']}), item("Flip-flops", {tags:['beach']}), item("Sun hat", {tags:['beach']}), item("Cover-up", {tags:['beach']}),
+        item("Thermal base layers", {perDay:1, tags:['cold']}), item("Wool socks (pairs)", {perDay:1, tags:['cold']}), item("Sweaters", {qty:2, tags:['cold']}),
+        item("Ski jacket", {tags:['cold']}), item("Ski pants", {tags:['cold']}), item("Gloves", {tags:['cold']}), item("Beanie", {tags:['cold']}), item("Scarf", {tags:['cold']}), item("Snow boots", {tags:['cold']})
+      ]),
+      cat("Toiletries", [
+        item("Toothbrush & toothpaste", {}), item("Deodorant", {}), item("Skincare basics", {}),
+        item("Shaving kit", {tags:['business']}), item("Contacts / glasses", {tags:['business']}), item("Medications", {tags:['business']}),
+        item("Sunscreen", {tags:['beach']}), item("After-sun lotion", {tags:['beach']}), item("Lip balm with SPF", {tags:['beach']}),
+        item("Lip balm", {tags:['cold']}), item("Heavy moisturizer", {tags:['cold']})
+      ]),
+      cat("Electronics", [
+        item("Phone charger", {}), item("Headphones", {}),
+        item("Laptop", {tags:['business']}), item("Laptop charger", {tags:['business']}), item("Portable battery", {tags:['business']}), item("Outlet adapter", {tags:['business']}),
+        item("Waterproof phone pouch", {tags:['beach']}), item("Camera", {tags:['beach']}), item("Portable speaker", {tags:['beach']}),
+        item("Action camera", {tags:['cold']})
+      ]),
+      cat("Documents", [
+        item("ID / passport", {}), item("Boarding pass / confirmation", {}),
+        item("Travel insurance card", {tags:['beach','cold']}),
+        item("Business cards", {tags:['business']}), item("Notebook & pen", {tags:['business']}), item("Company badge", {tags:['business']}),
+        item("Lift tickets / reservation", {tags:['cold']})
+      ]),
+      cat("Gear & Extras", [
+        item("Water bottle", {}),
+        item("Sunglasses", {tags:['beach']}), item("Beach towel", {tags:['beach']}), item("Beach bag", {tags:['beach']}), item("Snorkel set", {tags:['beach']}),
+        item("Book / e-reader", {tags:['beach','weekend']}),
+        item("Ski goggles", {tags:['cold']}), item("Hand warmers", {tags:['cold']}), item("Ski / board bag", {tags:['cold']}), item("Helmet", {tags:['cold']}),
+        item("Snacks for the road", {tags:['weekend']})
+      ])
+    ] };
+  }
+
+  // Converts the old one-template-per-trip-type schema into a single tagged
+  // master list, merging same-named items across templates into one entry
+  // tagged with every trip type it appeared under.
+  function migrateFromTemplates(old){
+    var tripTypes = old.templates.map(function(t){ return { id: t.id, name: t.name }; });
+    var categories = [];
+    function findCat(name){
+      for (var i=0;i<categories.length;i++) if (categories[i].name.toLowerCase() === name.toLowerCase()) return categories[i];
+      var created = { id: uid(), name: name, items: [] };
+      categories.push(created);
+      return created;
+    }
+    old.templates.forEach(function(tpl){
+      tpl.categories.forEach(function(cat){
+        var mc = findCat(cat.name);
+        cat.items.forEach(function(it){
+          var existing = null;
+          for (var i=0;i<mc.items.length;i++){
+            if (mc.items[i].name.trim().toLowerCase() === it.name.trim().toLowerCase()){ existing = mc.items[i]; break; }
+          }
+          if (existing){
+            if (existing.tags.indexOf(tpl.id) === -1) existing.tags.push(tpl.id);
+          } else {
+            mc.items.push({ id: uid(), name: it.name, qty: it.qty || 1, scales: !!it.scales, perDay: it.perDay || 1, tags: [tpl.id] });
+          }
+        });
+      });
+    });
+    var trips = (old.trips || []).map(function(t){
+      return {
+        id: t.id, name: t.name,
+        tripTypeIds: t.templateId ? [t.templateId] : [],
+        tripTypeNames: t.templateName ? [t.templateName] : [],
+        start: t.start, end: t.end, days: t.days, createdAt: t.createdAt,
+        items: t.items
+      };
+    });
+    return { tripTypes: tripTypes, master: { categories: categories }, trips: trips };
+  }
+
+  function defaultUi(){ return { view: 'home', tripId: null, openLedgers: {}, openCategories: {} }; }
 
   function load(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
       if (raw){
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.templates && parsed.trips) return parsed;
+        if (parsed && parsed.master && parsed.tripTypes && parsed.trips){
+          if (!parsed.ui) parsed.ui = defaultUi();
+          return parsed;
+        }
+        if (parsed && parsed.templates && parsed.trips){
+          var migrated = migrateFromTemplates(parsed);
+          var migratedState = { tripTypes: migrated.tripTypes, master: migrated.master, trips: migrated.trips, ui: defaultUi() };
+          try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedState)); }catch(e){}
+          return migratedState;
+        }
       }
     }catch(e){}
-    return { templates: defaultTemplates(), trips: [], ui: { view: 'home', tripId: null, openLedgers: {}, openTemplates: {} } };
+    return { tripTypes: defaultTripTypes(), master: defaultMaster(), trips: [], ui: defaultUi() };
   }
   var state = load();
-  if (!state.ui) state.ui = { view: 'home', tripId: null, openLedgers: {}, openTemplates: {} };
+  if (!state.ui) state.ui = defaultUi();
 
   function save(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
@@ -446,9 +528,16 @@
     for (var i=0;i<state.trips.length;i++) if (state.trips[i].id === id) return state.trips[i];
     return null;
   }
-  function getTemplate(id){
-    for (var i=0;i<state.templates.length;i++) if (state.templates[i].id === id) return state.templates[i];
+  function getTripType(id){
+    for (var i=0;i<state.tripTypes.length;i++) if (state.tripTypes[i].id === id) return state.tripTypes[i];
     return null;
+  }
+  function tripTypeName(id){
+    var t = getTripType(id);
+    return t ? t.name : id;
+  }
+  function tripBadge(t){
+    return (t.tripTypeNames && t.tripTypeNames.length) ? t.tripTypeNames.join(' + ') : 'General';
   }
   function tripCounts(trip){
     var packed=0, ignored=0, total=trip.items.length;
@@ -456,15 +545,20 @@
     return { packed:packed, ignored:ignored, total:total, pending: total-packed-ignored };
   }
 
-  function buildTripFromTemplate(tpl, name, start, end){
+  function buildTripFromMaster(tripTypeIds, name, start, end){
     var days = daysBetween(start, end);
     var items = [];
-    tpl.categories.forEach(function(cat){
+    state.master.categories.forEach(function(cat){
+      var relevant = [], rest = [];
       cat.items.forEach(function(it){
-        items.push({ id: uid(), name: it.name, category: cat.name, qty: scaledQty(it, days), scales: !!it.scales, perDay: it.perDay || 1, status: 'pending' });
+        var tags = it.tags || [];
+        var isRelevant = tags.some(function(t){ return tripTypeIds.indexOf(t) !== -1; });
+        var built = { id: uid(), name: it.name, category: cat.name, qty: scaledQty(it, days), scales: !!it.scales, perDay: it.perDay || 1, tags: tags.slice(), status: 'pending' };
+        (isRelevant ? relevant : rest).push(built);
       });
+      items = items.concat(relevant, rest);
     });
-    return { id: uid(), name: name, templateId: tpl.id, templateName: tpl.name, start: start, end: end, days: days, createdAt: Date.now(), items: items };
+    return { id: uid(), name: name, tripTypeIds: tripTypeIds.slice(), tripTypeNames: tripTypeIds.map(tripTypeName), start: start, end: end, days: days, createdAt: Date.now(), items: items };
   }
 
   // ---------- Rendering ----------
@@ -476,7 +570,7 @@
     var html = '';
     if (ui.view === 'home') html = renderHome();
     else if (ui.view === 'trip') html = renderTrip(getTrip(ui.tripId));
-    else if (ui.view === 'templates') html = renderTemplates();
+    else if (ui.view === 'master') html = renderMasterList();
     app.innerHTML = html;
 
     if (state.modal) renderModal();
@@ -493,12 +587,12 @@
 
     var out = '';
     out += '<div class="topbar"><div class="brand"><h1>Manifest</h1><span class="tag mono eyebrow">packing, sorted</span></div>' +
-      '<button class="icon-link" data-action="open-templates" aria-label="Manage templates" title="Manage templates">' + ICONS.gear + '</button></div>';
+      '<button class="icon-link" data-action="open-master" aria-label="Manage master list" title="Manage master list">' + ICONS.gear + '</button></div>';
 
     out += '<button class="btn btn-primary btn-block" data-action="open-new-trip">' + ICONS.plus + ' New Trip</button>';
 
     if (trips.length === 0){
-      out += '<div class="empty-state" style="margin-top:24px;"><strong>No trips yet</strong>Start one from a template and Manifest will build your checklist.</div>';
+      out += '<div class="empty-state" style="margin-top:24px;"><strong>No trips yet</strong>Start one and Manifest will build your checklist from your master list.</div>';
       return out;
     }
 
@@ -532,7 +626,7 @@
         '</div>' +
       '</div>' +
       '<div class="progress-bar"><div class="fill-packed" style="width:' + packedPct + '%"></div><div class="fill-ignored" style="width:' + ignoredPct + '%"></div></div>' +
-      '<div class="progress-line"><span>' + c.packed + ' packed · ' + c.ignored + ' set aside · ' + c.pending + ' to go</span><span class="badge">' + esc(t.templateName) + '</span></div>' +
+      '<div class="progress-line"><span>' + c.packed + ' packed · ' + c.ignored + ' set aside · ' + c.pending + ' to go</span><span class="badge">' + esc(tripBadge(t)) + '</span></div>' +
     '</div>';
   }
 
@@ -544,7 +638,7 @@
     var out = '';
     out += '<button class="back-btn" data-action="go-home">← All trips</button>';
     out += '<div class="trip-header"><div class="trip-header-top">' +
-      '<div><h2>' + esc(trip.name) + '</h2><div class="trip-meta mono">' + esc(fmtRange(trip.start, trip.end)) + ' · ' + trip.days + (trip.days===1?' day':' days') + ' · ' + esc(trip.templateName) + '</div></div>' +
+      '<div><h2>' + esc(trip.name) + '</h2><div class="trip-meta mono">' + esc(fmtRange(trip.start, trip.end)) + ' · ' + trip.days + (trip.days===1?' day':' days') + ' · ' + esc(tripBadge(trip)) + '</div></div>' +
       '<div class="card-actions"><button class="icon-link" data-action="clone-trip" data-id="' + trip.id + '" aria-label="Clone trip" title="Clone">' + ICONS.copy + '</button>' +
       '<button class="icon-link" data-action="delete-trip" data-id="' + trip.id + '" aria-label="Delete trip" title="Delete">' + ICONS.trash + '</button></div>' +
     '</div>';
@@ -620,55 +714,69 @@
     '</div>';
   }
 
-  function renderTemplates(){
+  function renderMasterList(){
     var out = '';
     out += '<button class="back-btn" data-action="go-home">← All trips</button>';
-    out += '<div class="topbar" style="margin-top:4px;"><h2 style="font-size:20px;">Templates</h2>' +
-      '<button class="btn btn-secondary" data-action="export-templates" style="width:auto;padding:8px 14px;font-size:13px;">Export</button></div>';
-    state.templates.forEach(function(tpl){ out += templateCard(tpl); });
-    out += '<form class="add-cat-row" data-action="add-template">' +
-      '<input type="text" name="tplName" placeholder="New template name" aria-label="New template name">' +
+    out += '<div class="topbar" style="margin-top:4px;"><h2 style="font-size:20px;">Master List</h2>' +
+      '<button class="btn btn-secondary" data-action="export-master" style="width:auto;padding:8px 14px;font-size:13px;">Export</button></div>';
+
+    out += '<div class="section-title" style="margin-top:0;">Trip types</div>';
+    out += '<div class="type-manage-row">' + state.tripTypes.map(function(tt){
+      return '<span class="type-tag">' + esc(tt.name) + '<button data-action="delete-type" data-id="' + tt.id + '" aria-label="Remove ' + esc(tt.name) + '">' + ICONS.x + '</button></span>';
+    }).join('') + '</div>';
+    out += '<form class="add-cat-row" style="margin-top:0;margin-bottom:24px;" data-action="add-type">' +
+      '<input type="text" name="typeName" placeholder="New trip type (e.g. Camping)" aria-label="New trip type">' +
       '<button type="submit" class="btn btn-secondary" style="width:auto;">Add</button></form>';
+
+    state.master.categories.forEach(function(cat){ out += masterCategoryCard(cat); });
+
+    out += '<form class="add-cat-row" data-action="add-master-category">' +
+      '<input type="text" name="catName" placeholder="New category (e.g. Sports Gear)" aria-label="New category">' +
+      '<button type="submit" class="btn btn-secondary" style="width:auto;">Add category</button></form>';
     return out;
   }
 
-  function templateCard(tpl){
-    var open = !!state.ui.openTemplates[tpl.id];
-    var itemCount = tpl.categories.reduce(function(n,c){ return n + c.items.length; }, 0);
+  function masterCategoryCard(cat){
+    var open = state.ui.openCategories[cat.id] !== false;
     var out = '<div class="tpl-card">';
-    out += '<div class="tpl-head" data-action="toggle-template" data-id="' + tpl.id + '">' +
-      '<div><h3>' + esc(tpl.name) + '</h3><div class="trip-meta">' + tpl.categories.length + ' categories · ' + itemCount + ' items</div></div>' +
+    out += '<div class="tpl-head" data-action="toggle-category" data-id="' + cat.id + '">' +
+      '<div><h3>' + esc(cat.name) + '</h3><div class="trip-meta">' + cat.items.length + ' items</div></div>' +
       '<span class="chev" style="' + (open?'transform:rotate(90deg);':'') + '">' + ICONS.chev + '</span>' +
     '</div>';
     if (open){
       out += '<div class="tpl-body">';
-      tpl.categories.forEach(function(cat){
-        out += '<div class="tpl-cat"><div class="tpl-cat-head"><span class="eyebrow">' + esc(cat.name) + '</span>' +
-          '<button class="icon-x" data-action="delete-category" data-tpl="' + tpl.id + '" data-cat="' + cat.id + '" aria-label="Delete category">' + ICONS.x + '</button></div>';
-        cat.items.forEach(function(it){
-          out += '<div class="tpl-item-row"><span class="tpl-item-name">' + esc(it.name) + '</span>' +
-            '<span style="display:flex;align-items:center;gap:10px;">' +
-            '<span class="tpl-item-meta mono">' + (it.scales ? (it.perDay + '/day') : ('×' + it.qty)) + '</span>' +
-            '<button class="icon-x" data-action="delete-item" data-tpl="' + tpl.id + '" data-cat="' + cat.id + '" data-item="' + it.id + '" aria-label="Delete item">' + ICONS.x + '</button>' +
-            '</span></div>';
-        });
-        out += '<form class="tpl-add-row" data-action="add-template-item" data-tpl="' + tpl.id + '" data-cat="' + cat.id + '">' +
-          '<input type="text" name="itemName" placeholder="Item name" required>' +
-          '<input type="number" name="qty" placeholder="Qty" min="1" value="1">' +
-          '<label class="scale-check"><input type="checkbox" name="scales"> per day</label>' +
-          '<button type="submit" aria-label="Add item">' + ICONS.plus + '</button>' +
-        '</form>';
-        out += '</div>';
-      });
-      out += '<form class="add-cat-row" data-action="add-category" data-tpl="' + tpl.id + '">' +
-        '<input type="text" name="catName" placeholder="New category (e.g. Gear)" required>' +
-        '<button type="submit" class="btn btn-secondary" style="width:auto;">Add category</button></form>';
-      out += '<div class="tpl-footer"><span class="trip-meta">Used by trips already created stays unchanged.</span>' +
-        '<button class="btn-danger-ghost" data-action="delete-template" data-id="' + tpl.id + '">Delete template</button></div>';
+      cat.items.forEach(function(it){ out += masterItemRow(cat.id, it); });
+      out += '<form class="tpl-add-row" data-action="add-master-item" data-cat="' + cat.id + '">' +
+        '<input type="text" name="itemName" placeholder="Item name" required>' +
+        '<input type="number" name="qty" placeholder="Qty" min="1" value="1">' +
+        '<label class="scale-check"><input type="checkbox" name="scales"> per day</label>' +
+        '<button type="submit" aria-label="Add item">' + ICONS.plus + '</button>' +
+      '</form>';
+      out += '<div class="tpl-footer"><span class="trip-meta">Tag items so they surface for the right trips.</span>' +
+        '<button class="btn-danger-ghost" data-action="delete-master-category" data-id="' + cat.id + '">Delete category</button></div>';
       out += '</div>';
     }
     out += '</div>';
     return out;
+  }
+
+  function masterItemRow(catId, it){
+    var meta = it.scales ? (it.perDay + '/day') : ('×' + it.qty);
+    var tags = it.tags || [];
+    var tagsHtml = state.tripTypes.map(function(tt){
+      var active = tags.indexOf(tt.id) !== -1;
+      return '<button type="button" class="chip' + (active?' active':'') + '" data-action="toggle-item-tag" data-cat="' + catId + '" data-item="' + it.id + '" data-type="' + tt.id + '">' + esc(tt.name) + '</button>';
+    }).join('');
+    return '<div class="tpl-item-row">' +
+      '<div class="tpl-item-row-top">' +
+        '<span class="tpl-item-name">' + esc(it.name) + '</span>' +
+        '<span style="display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
+          '<span class="tpl-item-meta mono">' + meta + '</span>' +
+          '<button class="icon-x" data-action="delete-master-item" data-cat="' + catId + '" data-item="' + it.id + '" aria-label="Delete item">' + ICONS.x + '</button>' +
+        '</span>' +
+      '</div>' +
+      (state.tripTypes.length ? '<div class="chip-row">' + tagsHtml + '</div>' : '') +
+    '</div>';
   }
 
   // ---------- Modal ----------
@@ -684,12 +792,14 @@
     if (m.type === 'newTrip'){
       var start = todayIso();
       var end = addDaysIso(start, 4);
+      var itemCount = state.master.categories.reduce(function(n,c){ return n + c.items.length; }, 0);
       box.innerHTML = '<h2>New trip</h2>' +
         '<form id="new-trip-form">' +
-          '<div class="tpl-pick">' + state.templates.map(function(t,i){
-            var n = t.categories.reduce(function(s,c){return s+c.items.length;},0);
-            return '<label><input type="radio" name="templateId" value="' + t.id + '" ' + (i===0?'checked':'') + '><span class="card">' + esc(t.name) + '<span class="n">' + n + ' items</span></span></label>';
-          }).join('') + '</div>' +
+          '<label class="field" style="margin-bottom:8px;">Trip type <span class="trip-meta" style="display:inline;">(optional — pick any that apply)</span></label>' +
+          '<div class="type-pick">' + (state.tripTypes.length ? state.tripTypes.map(function(tt){
+            return '<label><input type="checkbox" name="tripTypes" value="' + tt.id + '"><span class="chip">' + esc(tt.name) + '</span></label>';
+          }).join('') : '<span class="type-pick-empty">No trip types yet — add some from the Master List.</span>') + '</div>' +
+          '<div class="trip-meta mono" style="margin-bottom:14px;">' + itemCount + ' items in your master list</div>' +
           '<label class="field">Trip name<input type="text" name="tripName" placeholder="e.g. Chicago Client Visit" required></label>' +
           '<div class="date-row">' +
             '<label class="field">Start<input type="date" id="ntStart" name="start" value="' + start + '" required></label>' +
@@ -704,8 +814,8 @@
     }
 
     if (m.type === 'export'){
-      box.innerHTML = '<h2>Export templates</h2>' +
-        '<p class="trip-meta" style="margin-bottom:10px;">Select all, copy, and send this to Claude to lock these in as the app\'s built-in defaults.</p>' +
+      box.innerHTML = '<h2>Export master list</h2>' +
+        '<p class="trip-meta" style="margin-bottom:10px;">Select all, copy, and send this to Claude to lock it in as the app\'s built-in defaults.</p>' +
         '<textarea id="exportBox" readonly style="width:100%;height:280px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);">' + esc(m.json) + '</textarea>' +
         '<div class="modal-actions"><button type="button" class="btn btn-primary" data-action="close-modal">Done</button></div>';
     }
@@ -730,13 +840,11 @@
       box.querySelector('#new-trip-form').addEventListener('submit', function(e){
         e.preventDefault();
         var fd = new FormData(e.target);
-        var tplId = fd.get('templateId');
-        var tpl = getTemplate(tplId);
-        if (!tpl) return;
-        var name = (fd.get('tripName') || '').trim() || tpl.name;
+        var tripTypeIds = fd.getAll('tripTypes');
+        var name = (fd.get('tripName') || '').trim() || 'Trip';
         var start = fd.get('start'), end = fd.get('end');
         if (end < start) end = start;
-        var trip = buildTripFromTemplate(tpl, name, start, end);
+        var trip = buildTripFromMaster(tripTypeIds, name, start, end);
         state.trips.push(trip);
         state.ui.view = 'trip';
         state.ui.tripId = trip.id;
@@ -762,17 +870,17 @@
       if (action === 'close-modal-backdrop' && e.target !== el) return;
       state.modal = null; render(); return;
     }
-    if (action === 'open-templates'){ state.ui.view = 'templates'; render(); return; }
-    if (action === 'export-templates'){ state.modal = { type: 'export', json: JSON.stringify(state.templates, null, 2) }; render(); return; }
+    if (action === 'open-master'){ state.ui.view = 'master'; render(); return; }
+    if (action === 'export-master'){ state.modal = { type: 'export', json: JSON.stringify({ tripTypes: state.tripTypes, master: state.master }, null, 2) }; render(); return; }
     if (action === 'go-home'){ state.ui.view = 'home'; state.ui.tripId = null; render(); return; }
     if (action === 'open-trip'){ state.ui.view = 'trip'; state.ui.tripId = el.getAttribute('data-id'); render(); return; }
 
     if (action === 'clone-trip'){
       var src = getTrip(el.getAttribute('data-id'));
       if (!src) return;
-      var clone = { id: uid(), name: src.name + ' (copy)', templateId: src.templateId, templateName: src.templateName,
+      var clone = { id: uid(), name: src.name + ' (copy)', tripTypeIds: (src.tripTypeIds||[]).slice(), tripTypeNames: (src.tripTypeNames||[]).slice(),
         start: todayIso(), end: addDaysIso(todayIso(), src.days - 1), days: src.days, createdAt: Date.now(),
-        items: src.items.map(function(it){ return { id: uid(), name: it.name, category: it.category, qty: it.qty, scales: it.scales, perDay: it.perDay, status: 'pending' }; }) };
+        items: src.items.map(function(it){ return { id: uid(), name: it.name, category: it.category, qty: it.qty, scales: it.scales, perDay: it.perDay, tags: (it.tags||[]).slice(), status: 'pending' }; }) };
       state.trips.push(clone);
       state.ui.view = 'trip'; state.ui.tripId = clone.id;
       save(); render(); return;
@@ -810,31 +918,45 @@
       save(); render(); return;
     }
 
-    if (action === 'toggle-template'){
-      var tid = el.getAttribute('data-id');
-      state.ui.openTemplates[tid] = !state.ui.openTemplates[tid];
+    if (action === 'toggle-category'){
+      var cid = el.getAttribute('data-id');
+      var currentlyOpen = state.ui.openCategories[cid] !== false;
+      state.ui.openCategories[cid] = !currentlyOpen;
       save(); render(); return;
     }
-    if (action === 'delete-template'){
-      var tid2 = el.getAttribute('data-id');
-      var tpl = getTemplate(tid2);
-      if (!tpl) return;
-      if (!confirm('Delete template "' + tpl.name + '"? Trips already created from it are unaffected.')) return;
-      state.templates = state.templates.filter(function(t){ return t.id !== tid2; });
+    if (action === 'delete-master-category'){
+      var mc = state.master.categories.filter(function(c){ return c.id === el.getAttribute('data-id'); })[0];
+      if (!mc) return;
+      if (!confirm('Delete category "' + mc.name + '" and all its items? This can\'t be undone.')) return;
+      state.master.categories = state.master.categories.filter(function(c){ return c.id !== mc.id; });
       save(); render(); return;
     }
-    if (action === 'delete-category'){
-      var tpl2 = getTemplate(el.getAttribute('data-tpl'));
-      if (!tpl2) return;
-      tpl2.categories = tpl2.categories.filter(function(c){ return c.id !== el.getAttribute('data-cat'); });
-      save(); render(); return;
-    }
-    if (action === 'delete-item'){
-      var tpl3 = getTemplate(el.getAttribute('data-tpl'));
-      if (!tpl3) return;
-      var cat3 = tpl3.categories.filter(function(c){ return c.id === el.getAttribute('data-cat'); })[0];
+    if (action === 'delete-master-item'){
+      var cat3 = state.master.categories.filter(function(c){ return c.id === el.getAttribute('data-cat'); })[0];
       if (!cat3) return;
       cat3.items = cat3.items.filter(function(it){ return it.id !== el.getAttribute('data-item'); });
+      save(); render(); return;
+    }
+    if (action === 'toggle-item-tag'){
+      var cat4 = state.master.categories.filter(function(c){ return c.id === el.getAttribute('data-cat'); })[0];
+      if (!cat4) return;
+      var it4 = cat4.items.filter(function(i){ return i.id === el.getAttribute('data-item'); })[0];
+      if (!it4) return;
+      if (!it4.tags) it4.tags = [];
+      var typeId = el.getAttribute('data-type');
+      var idx = it4.tags.indexOf(typeId);
+      if (idx === -1) it4.tags.push(typeId); else it4.tags.splice(idx, 1);
+      save(); render(); return;
+    }
+    if (action === 'delete-type'){
+      var typeId2 = el.getAttribute('data-id');
+      var tt = getTripType(typeId2);
+      if (!tt) return;
+      if (!confirm('Remove trip type "' + tt.name + '"? It will be untagged from any items.')) return;
+      state.tripTypes = state.tripTypes.filter(function(t){ return t.id !== typeId2; });
+      state.master.categories.forEach(function(c){
+        c.items.forEach(function(it){ if (it.tags) it.tags = it.tags.filter(function(t){ return t !== typeId2; }); });
+      });
       save(); render(); return;
     }
   });
@@ -854,34 +976,29 @@
       trip.items.push({ id: uid(), name: name, category: cat, qty: 1, scales: false, perDay: 1, status: 'pending' });
       save(); render(); return;
     }
-    if (action === 'add-template'){
-      var input2 = el.querySelector('input[name="tplName"]');
+    if (action === 'add-type'){
+      var input2 = el.querySelector('input[name="typeName"]');
       var name2 = (input2.value || '').trim();
       if (!name2) return;
-      var newTpl = { id: uid(), name: name2, categories: [] };
-      state.templates.push(newTpl);
-      state.ui.openTemplates[newTpl.id] = true;
+      state.tripTypes.push({ id: uid(), name: name2 });
       save(); render(); return;
     }
-    if (action === 'add-category'){
-      var tpl = getTemplate(el.getAttribute('data-tpl'));
+    if (action === 'add-master-category'){
       var input3 = el.querySelector('input[name="catName"]');
       var name3 = (input3.value || '').trim();
-      if (!tpl || !name3) return;
-      tpl.categories.push({ id: uid(), name: name3, items: [] });
+      if (!name3) return;
+      state.master.categories.push({ id: uid(), name: name3, items: [] });
       save(); render(); return;
     }
-    if (action === 'add-template-item'){
-      var tpl2 = getTemplate(el.getAttribute('data-tpl'));
-      if (!tpl2) return;
-      var cat2 = tpl2.categories.filter(function(c){ return c.id === el.getAttribute('data-cat'); })[0];
+    if (action === 'add-master-item'){
+      var cat2 = state.master.categories.filter(function(c){ return c.id === el.getAttribute('data-cat'); })[0];
       if (!cat2) return;
       var fd = new FormData(el);
       var name4 = (fd.get('itemName') || '').trim();
       if (!name4) return;
       var qty = Math.max(1, parseInt(fd.get('qty'), 10) || 1);
       var scales = !!fd.get('scales');
-      cat2.items.push({ id: uid(), name: name4, qty: qty, scales: scales, perDay: qty });
+      cat2.items.push({ id: uid(), name: name4, qty: qty, scales: scales, perDay: qty, tags: [] });
       save(); render(); return;
     }
   });
