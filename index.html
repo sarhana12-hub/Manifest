@@ -142,13 +142,11 @@
     background:none; border:none; color:var(--ink-muted);
     font-size:14px; font-weight:500; cursor:pointer; padding:8px 0;
   }
-  .back-btn:hover{ color:var(--ink); }
   .icon-link{
     display:inline-flex; align-items:center; justify-content:center;
     width:36px;height:36px; border-radius:8px; border:1px solid var(--border);
     background:var(--surface); color:var(--ink-muted); cursor:pointer;
   }
-  .icon-link:hover{ color:var(--ink); border-color:var(--ink-muted); }
 
   /* ---- Buttons ---- */
   .btn{
@@ -157,11 +155,8 @@
     font-size:15px; font-weight:600; padding:12px 18px; line-height:1;
   }
   .btn-primary{ background:var(--accent); color:#fff; }
-  .btn-primary:hover{ background:var(--accent-strong); }
   .btn-secondary{ background:var(--surface); color:var(--ink); border-color:var(--border); }
-  .btn-secondary:hover{ border-color:var(--ink-muted); }
   .btn-ghost{ background:none; color:var(--ink-muted); padding:8px 4px; font-weight:500; }
-  .btn-ghost:hover{ color:var(--ink); }
   .btn-block{ width:100%; }
   .btn-danger-ghost{ background:none; border:none; color:var(--danger); font-weight:500; padding:8px 4px; cursor:pointer; font-size:14px; }
 
@@ -189,7 +184,6 @@
     width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     border-radius:7px;
   }
-  .card-actions button:hover{ background:var(--surface-2); color:var(--ink); }
   .progress-line{ display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--ink-muted); }
   .progress-bar{ height:7px; border-radius:999px; background:var(--surface-2); overflow:hidden; display:flex; }
   .progress-bar .fill-packed{ background:var(--success); height:100%; }
@@ -233,8 +227,6 @@
     background:var(--surface); cursor:pointer; display:flex; align-items:center; justify-content:center;
     color:var(--ink-muted);
   }
-  .status-btn.pack:hover{ background:var(--success-soft); border-color:var(--success); color:var(--success); }
-  .status-btn.skip:hover{ background:var(--muted-status-soft); border-color:var(--muted-status); color:var(--muted-status); }
   .all-done{ font-size:13.5px; color:var(--success); padding-block:8px; display:flex; align-items:center; gap:6px; }
 
   .add-item-form{ display:flex; gap:8px; margin-top:10px; }
@@ -285,7 +277,6 @@
   .add-cat-row input{ flex:1; }
   .tpl-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
   .icon-x{ background:none; border:none; color:var(--ink-muted); cursor:pointer; width:26px; height:26px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:6px; }
-  .icon-x:hover{ color:var(--danger); background:var(--danger-soft); }
 
   /* ---- Tags / trip types ---- */
   .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
@@ -301,7 +292,6 @@
     padding:6px 6px 6px 12px; border-radius:999px; background:var(--surface-2); color:var(--ink);
   }
   .type-tag button{ background:none; border:none; color:var(--ink-muted); cursor:pointer; width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
-  .type-tag button:hover{ color:var(--danger); background:var(--danger-soft); }
 
   /* ---- Modal ---- */
   .modal-backdrop{
@@ -340,6 +330,23 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   svg{ display:block; }
+
+  /* Hover feedback only for devices with a real pointer — on touch,
+     :hover can get "stuck" on whatever element lands under the finger
+     after a tap triggers a re-render (looks like a randomly-highlighted
+     row). */
+  @media (hover: hover) and (pointer: fine){
+    .back-btn:hover{ color:var(--ink); }
+    .icon-link:hover{ color:var(--ink); border-color:var(--ink-muted); }
+    .btn-primary:hover{ background:var(--accent-strong); }
+    .btn-secondary:hover{ border-color:var(--ink-muted); }
+    .btn-ghost:hover{ color:var(--ink); }
+    .card-actions button:hover{ background:var(--surface-2); color:var(--ink); }
+    .status-btn.pack:hover{ background:var(--success-soft); border-color:var(--success); color:var(--success); }
+    .status-btn.skip:hover{ background:var(--muted-status-soft); border-color:var(--muted-status); color:var(--muted-status); }
+    .icon-x:hover{ color:var(--danger); background:var(--danger-soft); }
+    .type-tag button:hover{ color:var(--danger); background:var(--danger-soft); }
+  }
 </style>
 </head>
 <body>
@@ -952,12 +959,12 @@
       var it = findItem(trip, el.getAttribute('data-item'));
       if (!it) return;
       var newStatus = el.getAttribute('data-status');
-      if (newStatus === 'ignored' && it.status === 'pending'){
+      if (it.status === 'pending' && (newStatus === 'ignored' || newStatus === 'packed')){
         var row = el.closest('.item-row');
         if (row) row.classList.add('row-leaving');
-        showToast('Item set aside');
+        showToast(newStatus === 'packed' ? 'Item packed' : 'Item set aside');
         setTimeout(function(){
-          it.status = 'ignored';
+          it.status = newStatus;
           save(); render();
         }, 550);
         return;
