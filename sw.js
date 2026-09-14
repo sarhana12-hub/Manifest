@@ -1,4 +1,4 @@
-const CACHE = 'manifest-v17';
+const CACHE = 'manifest-v18';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 // GitHub Pages serves everything with Cache-Control: max-age=600, which we
