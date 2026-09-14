@@ -283,8 +283,6 @@
   .tpl-add-row{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
   .tpl-add-row input[type="text"]{ flex:2; min-width:110px; }
   .tpl-add-row input[type="number"]{ width:64px; }
-  .scale-check{ display:flex; align-items:center; gap:5px; font-size:12px; color:var(--ink-muted); white-space:nowrap; }
-  .scale-check input{ width:auto; }
   .tpl-add-row button{ background:var(--surface-2); border:1px solid var(--border); border-radius:8px; width:38px; cursor:pointer; font-size:16px; }
   .add-cat-row{ display:flex; gap:8px; margin-top:18px; }
   .add-cat-row input{ flex:1; }
@@ -378,18 +376,18 @@
   function defaultMaster(){
     function item(name, opts){
       opts = opts || {};
-      return { id: uid(), name: name, qty: opts.qty || 1, scales: !!opts.perDay, perDay: opts.perDay || 1, tags: opts.tags || [] };
+      return { id: uid(), name: name, qty: opts.qty || 1, tags: opts.tags || [] };
     }
     function cat(name, items){ return { id: uid(), name: name, items: items }; }
     return { categories: [
       cat("Clothing", [
-        item("Underwear", {perDay:1}), item("Socks (pairs)", {perDay:1}), item("Pajamas", {}),
-        item("Dress shirts", {perDay:1, tags:['business']}), item("Undershirts", {perDay:1, tags:['business']}),
+        item("Underwear"), item("Socks (pairs)"), item("Pajamas"),
+        item("Dress shirts", {tags:['business']}), item("Undershirts", {tags:['business']}),
         item("Slacks", {qty:2, tags:['business']}), item("Blazer", {tags:['business']}), item("Belt", {tags:['business']}), item("Dress shoes", {tags:['business']}),
-        item("Casual outfits", {perDay:1, tags:['weekend']}),
-        item("Swimsuits", {qty:2, tags:['beach']}), item("T-shirts", {perDay:1, tags:['beach']}), item("Shorts", {perDay:1, tags:['beach']}),
+        item("Casual outfits", {tags:['weekend']}),
+        item("Swimsuits", {qty:2, tags:['beach']}), item("T-shirts", {tags:['beach']}), item("Shorts", {tags:['beach']}),
         item("Sundress / light outfit", {tags:['beach']}), item("Flip-flops", {tags:['beach']}), item("Sun hat", {tags:['beach']}), item("Cover-up", {tags:['beach']}),
-        item("Thermal base layers", {perDay:1, tags:['cold']}), item("Wool socks (pairs)", {perDay:1, tags:['cold']}), item("Sweaters", {qty:2, tags:['cold']}),
+        item("Thermal base layers", {tags:['cold']}), item("Wool socks (pairs)", {tags:['cold']}), item("Sweaters", {qty:2, tags:['cold']}),
         item("Ski jacket", {tags:['cold']}), item("Ski pants", {tags:['cold']}), item("Gloves", {tags:['cold']}), item("Beanie", {tags:['cold']}), item("Scarf", {tags:['cold']}), item("Snow boots", {tags:['cold']})
       ]),
       cat("Toiletries", [
@@ -443,7 +441,7 @@
           if (existing){
             if (existing.tags.indexOf(tpl.id) === -1) existing.tags.push(tpl.id);
           } else {
-            mc.items.push({ id: uid(), name: it.name, qty: it.qty || 1, scales: !!it.scales, perDay: it.perDay || 1, tags: [tpl.id] });
+            mc.items.push({ id: uid(), name: it.name, qty: it.qty || 1, tags: [tpl.id] });
           }
         });
       });
@@ -510,10 +508,6 @@
     var diff = Math.round((b - a) / 86400000) + 1;
     return Math.max(1, diff);
   }
-  function scaledQty(item, days){
-    if (item.scales) return Math.max(1, Math.ceil(days * (item.perDay || 1)));
-    return item.qty || 1;
-  }
   function todayIso(){
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -553,7 +547,7 @@
       cat.items.forEach(function(it){
         var tags = it.tags || [];
         var isRelevant = tags.some(function(t){ return tripTypeIds.indexOf(t) !== -1; });
-        var built = { id: uid(), name: it.name, category: cat.name, qty: scaledQty(it, days), scales: !!it.scales, perDay: it.perDay || 1, tags: tags.slice(), status: 'pending' };
+        var built = { id: uid(), name: it.name, category: cat.name, qty: it.qty || 1, tags: tags.slice(), status: 'pending' };
         (isRelevant ? relevant : rest).push(built);
       });
       items = items.concat(relevant, rest);
@@ -684,7 +678,7 @@
 
   function itemRow(it){
     var qtyBlock = '';
-    if (it.qty > 1 || it.scales){
+    if (it.qty > 1){
       qtyBlock = '<span class="qty mono">×' + it.qty + '</span>' +
         '<span class="stepper">' +
           '<button data-action="qty-dec" data-item="' + it.id + '" aria-label="Decrease quantity">−</button>' +
@@ -749,7 +743,6 @@
       out += '<form class="tpl-add-row" data-action="add-master-item" data-cat="' + cat.id + '">' +
         '<input type="text" name="itemName" placeholder="Item name" required>' +
         '<input type="number" name="qty" placeholder="Qty" min="1" value="1">' +
-        '<label class="scale-check"><input type="checkbox" name="scales"> per day</label>' +
         '<button type="submit" aria-label="Add item">' + ICONS.plus + '</button>' +
       '</form>';
       out += '<div class="tpl-footer"><span class="trip-meta">Tag items so they surface for the right trips.</span>' +
@@ -761,7 +754,7 @@
   }
 
   function masterItemRow(catId, it){
-    var meta = it.scales ? (it.perDay + '/day') : ('×' + it.qty);
+    var meta = '×' + it.qty;
     var tags = it.tags || [];
     var tagsHtml = state.tripTypes.map(function(tt){
       var active = tags.indexOf(tt.id) !== -1;
@@ -880,7 +873,7 @@
       if (!src) return;
       var clone = { id: uid(), name: src.name + ' (copy)', tripTypeIds: (src.tripTypeIds||[]).slice(), tripTypeNames: (src.tripTypeNames||[]).slice(),
         start: todayIso(), end: addDaysIso(todayIso(), src.days - 1), days: src.days, createdAt: Date.now(),
-        items: src.items.map(function(it){ return { id: uid(), name: it.name, category: it.category, qty: it.qty, scales: it.scales, perDay: it.perDay, tags: (it.tags||[]).slice(), status: 'pending' }; }) };
+        items: src.items.map(function(it){ return { id: uid(), name: it.name, category: it.category, qty: it.qty, tags: (it.tags||[]).slice(), status: 'pending' }; }) };
       state.trips.push(clone);
       state.ui.view = 'trip'; state.ui.tripId = clone.id;
       save(); render(); return;
@@ -973,7 +966,7 @@
       var input = el.querySelector('input[name="itemName"]');
       var name = (input.value || '').trim();
       if (!trip || !name) return;
-      trip.items.push({ id: uid(), name: name, category: cat, qty: 1, scales: false, perDay: 1, status: 'pending' });
+      trip.items.push({ id: uid(), name: name, category: cat, qty: 1, tags: [], status: 'pending' });
       save(); render(); return;
     }
     if (action === 'add-type'){
@@ -997,8 +990,7 @@
       var name4 = (fd.get('itemName') || '').trim();
       if (!name4) return;
       var qty = Math.max(1, parseInt(fd.get('qty'), 10) || 1);
-      var scales = !!fd.get('scales');
-      cat2.items.push({ id: uid(), name: name4, qty: qty, scales: scales, perDay: qty, tags: [] });
+      cat2.items.push({ id: uid(), name: name4, qty: qty, tags: [] });
       save(); render(); return;
     }
   });
