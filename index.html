@@ -203,6 +203,14 @@
     margin-top:16px; background:var(--surface); border:1px solid var(--border);
     border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px;
   }
+  .link-copy{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+    font-size:12.5px; text-align:left; color:var(--ink); padding:10px 12px;
+    background:var(--surface-2); border:1px solid transparent; border-radius:8px; cursor:pointer;
+  }
+  .link-copy span{ word-break:break-all; }
+  .link-copy svg{ flex-shrink:0; color:var(--ink-muted); }
+  .link-copy:active{ border-color:var(--accent); }
   .summary-text{ display:flex; gap:14px; font-size:13px; }
   .summary-text span{ display:flex; align-items:center; gap:6px; color:var(--ink-muted); }
   .dot{ width:8px;height:8px;border-radius:50%; display:inline-block; }
@@ -398,6 +406,24 @@
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1600);
+  }
+  function copyToClipboard(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject();
+      }catch(e){ reject(e); }
+    });
   }
 
   function defaultTripTypes(){
@@ -748,7 +774,9 @@
     out += '<div class="section-title">Share Manifest</div>';
     out += '<div class="summary-card">' +
       '<div class="trip-meta">This link opens the app itself — each person who opens it gets their own private checklist on their own device, not a copy of yours.</div>' +
-      '<div class="mono" style="font-size:12.5px; word-break:break-all; padding:10px 12px; background:var(--surface-2); border-radius:8px;">' + esc(APP_URL) + '</div>' +
+      '<button type="button" class="link-copy mono" data-action="copy-link" aria-label="Copy link">' +
+        '<span>' + esc(APP_URL) + '</span>' + ICONS.copy +
+      '</button>' +
       '<button class="btn btn-primary btn-block" data-action="share-app">Share link</button>' +
     '</div>';
     return out;
@@ -910,13 +938,15 @@
       state.modal = null; render(); return;
     }
     if (action === 'open-settings'){ state.ui.view = 'settings'; render(); return; }
+    if (action === 'copy-link'){
+      copyToClipboard(APP_URL).then(function(){ showToast('Link copied'); }).catch(function(){ showToast('Could not copy — try selecting it manually'); });
+      return;
+    }
     if (action === 'share-app'){
       if (navigator.share){
         navigator.share({ title: 'Manifest', text: 'Manifest — a packing checklist app', url: APP_URL }).catch(function(){});
-      } else if (navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(APP_URL).then(function(){ showToast('Link copied'); }).catch(function(){ showToast('Copy the link above'); });
       } else {
-        showToast('Copy the link above');
+        copyToClipboard(APP_URL).then(function(){ showToast('Link copied'); }).catch(function(){ showToast('Could not copy — try selecting it manually'); });
       }
       return;
     }
