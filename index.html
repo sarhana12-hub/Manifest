@@ -218,6 +218,15 @@
   .dot.ignored{ background:var(--gold); }
   .dot.pending{ background:var(--surface-2); border:1px solid var(--border); }
 
+  .suggest-card{
+    margin-top:14px; background:var(--accent-soft); border:1px solid var(--accent);
+    border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;
+    font-size:13.5px; color:var(--accent-strong); line-height:1.4;
+  }
+  .suggest-actions{ display:flex; gap:8px; }
+  .suggest-actions .btn{ padding:9px 16px; font-size:13px; }
+  .suggest-actions .btn-ghost{ color:var(--accent-strong); }
+
   .category{ margin-top:26px; }
   .category-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
   .item-row{
@@ -334,6 +343,35 @@
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  /* ---- Completion stamp ---- */
+  .stamp-overlay{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:rgba(20,22,18,0.35); opacity:0; animation:stampFadeIn .25s ease forwards; pointer-events:none;
+  }
+  .stamp-overlay.leaving{ animation:stampFadeOut .45s ease forwards; }
+  @keyframes stampFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes stampFadeOut{ from{ opacity:1; } to{ opacity:0; } }
+  .stamp-mark{ animation:stampSlam .5s cubic-bezier(.2,1.4,.4,1) both; }
+  .stamp-mark.reduced{ animation:stampFadeIn .3s ease both; }
+  @keyframes stampSlam{
+    0%{ transform:scale(2.4) rotate(-18deg); opacity:0; }
+    55%{ transform:scale(.92) rotate(-6deg); opacity:1; }
+    75%{ transform:scale(1.05) rotate(-9deg); }
+    100%{ transform:scale(1) rotate(-7deg); opacity:1; }
+  }
+  .stamp-ring{
+    width:220px; height:220px; border-radius:50%; border:5px double var(--accent);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:var(--accent-soft); color:var(--accent-strong); box-shadow:0 10px 40px rgba(0,0,0,.25);
+  }
+  .stamp-check{ width:54px; height:54px; display:flex; align-items:center; justify-content:center; }
+  .stamp-check svg{ width:100%; height:100%; }
+  .stamp-label{ font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+  .stamp-trip{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; letter-spacing:.05em;
+    max-width:170px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 8px;
+  }
+
   svg{ display:block; }
 
   /* Hover feedback only for devices with a real pointer — on touch,
@@ -424,6 +462,60 @@
     });
   }
 
+  // A single reused AudioContext, created/resumed synchronously inside a
+  // click handler so iOS Safari's autoplay policy treats it as user-
+  // initiated. Playing on it later (even from a setTimeout) still works
+  // once it's been unlocked this way.
+  var audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx){
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx){ try{ audioCtx = new Ctx(); }catch(e){} }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(function(){});
+  }
+  function playStampSound(){
+    if (!audioCtx) return;
+    try{
+      var t = audioCtx.currentTime;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(190, t);
+      osc.frequency.exponentialRampToValueAtTime(55, t + 0.16);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.24);
+    }catch(e){}
+  }
+
+  // Fires once a trip's last pending item is resolved (packed or set
+  // aside) — a full-screen "ink stamp" moment celebrating the finished
+  // checklist. Respects prefers-reduced-motion with a shorter, static show.
+  function celebrateTripComplete(trip){
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var overlay = document.createElement('div');
+    overlay.className = 'stamp-overlay';
+    overlay.innerHTML =
+      '<div class="stamp-mark' + (reduced ? ' reduced' : '') + '">' +
+        '<div class="stamp-ring">' +
+          '<span class="stamp-check">' + ICONS.check + '</span>' +
+          '<span class="stamp-label">Packed</span>' +
+          '<span class="stamp-trip">' + esc(trip.name) + '</span>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    playStampSound();
+    if (navigator.vibrate){ try{ navigator.vibrate([15, 40, 15]); }catch(e){} }
+    var holdMs = reduced ? 900 : 1400;
+    var removeMs = reduced ? 1200 : 1850;
+    setTimeout(function(){ overlay.classList.add('leaving'); }, holdMs);
+    setTimeout(function(){ overlay.remove(); }, removeMs);
+  }
+
   function defaultTripTypes(){
     return [
       { id: 'cold', name: 'Cold Weather' },
@@ -512,7 +604,7 @@
     return { tripTypes: tripTypes, master: { categories: categories }, trips: trips };
   }
 
-  function defaultUi(){ return { view: 'home', tripId: null, openLedgers: {}, openCategories: {} }; }
+  function defaultUi(){ return { view: 'home', tripId: null, openLedgers: {}, openCategories: {}, dismissedSuggestions: {} }; }
 
   function load(){
     try{
@@ -535,6 +627,7 @@
   }
   var state = load();
   if (!state.ui) state.ui = defaultUi();
+  if (!state.ui.dismissedSuggestions) state.ui.dismissedSuggestions = {};
 
   function save(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
@@ -636,6 +729,37 @@
     });
   }
 
+  // Finds an item that's not on the master list but has been added by hand
+  // to 2+ different trips (including this one) — a sign it belongs on the
+  // master list permanently. Returns the one with the most trips, skipping
+  // anything already dismissed for this key.
+  function findRecurringSuggestion(trip){
+    var masterKeys = {};
+    state.master.categories.forEach(function(cat){
+      cat.items.forEach(function(it){ masterKeys[cat.name + '|' + it.name.toLowerCase()] = true; });
+    });
+    var tripsByKey = {};
+    state.trips.forEach(function(t){
+      var seen = {};
+      t.items.forEach(function(it){
+        var key = it.category + '|' + it.name.toLowerCase();
+        if (masterKeys[key] || seen[key]) return;
+        seen[key] = true;
+        tripsByKey[key] = (tripsByKey[key] || 0) + 1;
+      });
+    });
+    var best = null;
+    trip.items.forEach(function(it){
+      var key = it.category + '|' + it.name.toLowerCase();
+      if (masterKeys[key] || state.ui.dismissedSuggestions[key]) return;
+      var count = tripsByKey[key] || 0;
+      if (count >= 2 && (!best || count > best.count)){
+        best = { key: key, name: it.name, category: it.category, count: count };
+      }
+    });
+    return best;
+  }
+
   // ---------- Rendering ----------
   var app = document.getElementById('app');
 
@@ -727,6 +851,17 @@
         '<span><span class="dot pending"></span>' + c.pending + ' to go</span>' +
       '</div>' +
     '</div></div>';
+
+    var suggestion = findRecurringSuggestion(trip);
+    if (suggestion){
+      out += '<div class="suggest-card">' +
+        '<span>You\'ve added <strong>' + esc(suggestion.name) + '</strong> by hand on ' + suggestion.count + ' trips — add it to your master list?</span>' +
+        '<div class="suggest-actions">' +
+          '<button class="btn btn-primary" data-action="accept-suggestion" data-key="' + esc(suggestion.key) + '" data-name="' + esc(suggestion.name) + '" data-cat="' + esc(suggestion.category) + '">Add to master list</button>' +
+          '<button class="btn-ghost" data-action="dismiss-suggestion" data-key="' + esc(suggestion.key) + '">Not now</button>' +
+        '</div>' +
+      '</div>';
+    }
 
     var byCat = {};
     var order = [];
@@ -1066,9 +1201,12 @@
         var row = el.closest('.item-row');
         if (row) row.classList.add('row-leaving');
         showToast(newStatus === 'packed' ? 'Item packed' : 'Item set aside');
+        ensureAudio();
         setTimeout(function(){
           it.status = newStatus;
+          var justCompleted = tripCounts(trip).pending === 0;
           save(); render();
+          if (justCompleted) celebrateTripComplete(trip);
         }, 550);
         return;
       }
@@ -1078,6 +1216,21 @@
     if (action === 'toggle-ledger'){
       var key = el.getAttribute('data-key');
       state.ui.openLedgers[key] = !state.ui.openLedgers[key];
+      save(); render(); return;
+    }
+    if (action === 'accept-suggestion'){
+      var sKey = el.getAttribute('data-key');
+      var sName = el.getAttribute('data-name');
+      var sCat = el.getAttribute('data-cat');
+      var cat7 = state.master.categories.filter(function(c){ return c.name === sCat; })[0];
+      if (!cat7){ cat7 = { id: uid(), name: sCat, items: [] }; state.master.categories.push(cat7); }
+      cat7.items.push({ id: uid(), name: sName, tags: [] });
+      state.ui.dismissedSuggestions[sKey] = true;
+      save(); render(); return;
+    }
+    if (action === 'dismiss-suggestion'){
+      var dKey = el.getAttribute('data-key');
+      state.ui.dismissedSuggestions[dKey] = true;
       save(); render(); return;
     }
 
