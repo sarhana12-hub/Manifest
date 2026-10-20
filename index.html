@@ -105,6 +105,7 @@
      page behind the nav bar, and no text selection / long-press callouts on
      controls (inputs stay selectable). */
   *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
   html{
     color-scheme:light dark;
     background:var(--bg);
@@ -412,9 +413,16 @@
   .tpl-head h3{ font-size:17px; font-weight:600; }
   .tpl-head .trip-meta{ margin-top:1px; }
   .tpl-body{ padding:0 16px 4px; border-top:1px solid var(--border); }
-  .tpl-item-row{ display:flex; flex-direction:column; gap:8px; padding-block:12px; border-bottom:1px solid var(--border); }
-  .tpl-item-row-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; }
+  .tpl-item-row{
+    width:100%; display:flex; justify-content:space-between; align-items:center; gap:12px;
+    min-height:58px; padding:9px 0; background:none; border:none; border-bottom:1px solid var(--border);
+    text-align:left; color:var(--ink); cursor:pointer; font-size:16px;
+  }
+  .tpl-item-row svg{ color:var(--ink-muted); flex-shrink:0; }
+  .tpl-item-row:active{ opacity:.6; }
   .tpl-item-name{ font-size:16px; overflow-wrap:anywhere; min-width:0; }
+  .starter-cat{ margin:16px 0 0; }
+  .starter-cat + .ledger-row{ border-top:none; }
   .add-cat-row{ display:flex; gap:8px; margin-top:12px; }
   .add-cat-row input{ flex:1; }
   .add-cat-row .btn{ flex-shrink:0; }
@@ -594,6 +602,27 @@
     .type-tag button:hover{ color:var(--danger); background:var(--danger-soft); }
   }
 
+  /* ---- Edit-item sheet ---- */
+  .seg{ display:flex; background:var(--surface-2); border-radius:12px; padding:3px; gap:3px; margin-bottom:10px; }
+  .seg label{ flex:1; position:relative; cursor:pointer; }
+  .seg input{ position:absolute; opacity:0; width:1px; height:1px; }
+  .seg span{
+    display:flex; align-items:center; justify-content:center; min-height:40px; border-radius:10px;
+    font-size:14px; font-weight:600; color:var(--ink-muted); transition:background-color .15s ease, color .15s ease;
+  }
+  .seg input:checked + span{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+  .seg input:focus-visible + span{ outline:2px solid var(--focus); outline-offset:1px; }
+  .never-pick input:checked + .chip{ background:var(--danger-soft); border-color:var(--danger); color:var(--danger); text-decoration:line-through; }
+  .scope-summary{ font-size:14px; color:var(--ink-muted); margin:14px 0 18px; min-height:20px; }
+  .scope-summary strong{ color:var(--ink); }
+  .scope-summary strong.limited{ color:var(--gold); }
+  .sheet-delete{ display:block; margin:14px auto 0; }
+
+  /* ---- Leave-day checklist on a trip ---- */
+  .leave-day{ margin-top:36px; }
+  .leave-day .eyebrow{ display:flex; align-items:center; gap:6px; color:var(--accent); }
+  .leave-day .list-card{ border-color:var(--accent); border-style:dashed; }
+
   /* ---- Tag scope labels ----
      Spell out what a tag does ("Only Cold Weather trips") so a stray tap on
      a chip can't silently drop an everyday item from every other trip. */
@@ -621,6 +650,7 @@
     check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
     minus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
     back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>',
+    door: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4h3a2 2 0 0 1 2 2v14"></path><path d="M2 20h3"></path><path d="M13 20h9"></path><path d="M10 12v.01"></path><path d="M13 4.56v16.44a1 1 0 0 1-1.24.97L5 20V5.56a2 2 0 0 1 1.52-1.94l4-1A2 2 0 0 1 13 4.56Z"></path></svg>',
     chev: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>',
     copy: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
     trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
@@ -651,7 +681,10 @@
       if (/[A-Z]/.test(word.slice(1))) return word;
       var lower = word.toLowerCase();
       if (i > 0 && i < words.length - 1 && MINOR_WORDS[lower.replace(/[^a-z]/g, '')]) return lower;
-      return lower.replace(/(^|[-\/(])([a-z])/g, function(m, pre, ch){ return pre + ch.toUpperCase(); });
+      return lower.split('-').map(function(part, j){
+        if (j > 0 && MINOR_WORDS[part]) return part;
+        return part.replace(/(^|[\/(])([a-z])/g, function(m, pre, ch){ return pre + ch.toUpperCase(); });
+      }).join('-');
     }).join(' ');
   }
   function byName(a, b){
@@ -791,7 +824,21 @@
       cat("Airplane Needs", [
         item("Dramamine"), item("Neck Pillow"), item("Light Puffy"), item("Eye Mask"),
         item("Ear Plugs"), item("David Bars"), item("Downloaded Shows")
-      ])
+      ]),
+      leaveDayCategory()
+    ] };
+  }
+
+  // Things to do (not pack) on the way out the door. Lives in the master
+  // list as a flagged category so tags, trips and editing all work the
+  // same; trips show it last, with "Done" in place of "Packed".
+  function leaveDayCategory(){
+    function task(name, tags){ return { id: uid(), name: name, tags: tags || [] }; }
+    return { id: uid(), name: 'Before You Leave', leaveDay: true, items: [
+      task('Set Out-of-Office'), task('Flight Check-in'), task('Charge Devices'),
+      task('Take Out Trash'), task('Adjust Thermostat'), task('Lock Doors & Windows'),
+      task('Water Plants'), task('Notify Bank of Travel', ['international']),
+      task('Download Offline Maps', ['international'])
     ] };
   }
 
@@ -887,6 +934,22 @@
   }
   normalizeNames(state);
 
+  // One-time: give existing lists the leave-day checklist (new installs get
+  // it from the defaults), and bring it onto current/upcoming trips.
+  if (!state.fixes.leaveDaySeeded){
+    state.fixes.leaveDaySeeded = true;
+    if (!state.master.categories.some(function(c){ return c.leaveDay; })){
+      var seeded = leaveDayCategory();
+      // Skip trip-type tasks whose type this device doesn't have, rather
+      // than letting them fall through to every trip.
+      seeded.items = seeded.items.filter(function(it){ return !it.tags.length || it.tags.some(getTripType); });
+      seeded.items.forEach(function(it){ it.tags = it.tags.filter(getTripType); });
+      state.master.categories.push(seeded);
+      var seedToday = todayIso();
+      state.trips.forEach(function(t){ if (t.end >= seedToday) syncTripWithMaster(t); });
+    }
+  }
+
   // One-time repair: "Phone Charger" was tagged Cold Weather by mistake,
   // which kept it off every other trip. Make it universal again and add it
   // to any current or upcoming trip that's missing it.
@@ -911,6 +974,8 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state, function(k, v){ return k === 'modal' ? undefined : v; }));
     }catch(e){}
   }
+  // Persist the launch-time migrations above right away.
+  save();
 
   function fmtDate(iso){
     if (!iso) return '';
@@ -971,16 +1036,22 @@
   // An item with no tags is universal and goes on every trip. A tagged item
   // (e.g. "cold" or "personal") is only included when the trip itself is
   // tagged with a matching type — tags gate inclusion, not just order.
+  // "Never on" types (hideOn) win over everything: an item hidden on
+  // Personal stays off a Personal trip even if it's also tagged for
+  // another type the trip has.
+  function itemQualifies(it, tripTypeIds){
+    var has = function(t){ return tripTypeIds.indexOf(t) !== -1; };
+    if ((it.hideOn || []).some(has)) return false;
+    var tags = it.tags || [];
+    return tags.length === 0 || tags.some(has);
+  }
   function buildTripFromMaster(tripTypeIds, name, start, end){
     var days = daysBetween(start, end);
     var items = [];
     state.master.categories.forEach(function(cat){
       cat.items.forEach(function(it){
-        var tags = it.tags || [];
-        var isUniversal = tags.length === 0;
-        var isSelected = tags.some(function(t){ return tripTypeIds.indexOf(t) !== -1; });
-        if (isUniversal || isSelected){
-          items.push({ id: uid(), name: it.name, category: cat.name, tags: tags.slice(), status: 'pending' });
+        if (itemQualifies(it, tripTypeIds)){
+          items.push({ id: uid(), name: it.name, category: cat.name, tags: (it.tags || []).slice(), status: 'pending' });
         }
       });
     });
@@ -999,12 +1070,9 @@
     trip.items.forEach(function(it){ existingKeys[it.category + '|' + it.name.toLowerCase()] = true; });
     state.master.categories.forEach(function(cat){
       cat.items.forEach(function(it){
-        var tags = it.tags || [];
-        var isUniversal = tags.length === 0;
-        var isSelected = tags.some(function(t){ return trip.tripTypeIds.indexOf(t) !== -1; });
         var key = cat.name + '|' + it.name.toLowerCase();
-        if ((isUniversal || isSelected) && !existingKeys[key]){
-          trip.items.push({ id: uid(), name: it.name, category: cat.name, tags: tags.slice(), status: 'pending' });
+        if (itemQualifies(it, trip.tripTypeIds) && !existingKeys[key]){
+          trip.items.push({ id: uid(), name: it.name, category: cat.name, tags: (it.tags || []).slice(), status: 'pending' });
           existingKeys[key] = true;
         }
       });
@@ -1051,21 +1119,26 @@
     var out = [];
     state.master.categories.forEach(function(cat){
       cat.items.forEach(function(it){
-        if (!onTrip[cat.name + '|' + it.name.toLowerCase()]) out.push({ name: it.name, category: cat.name, tags: it.tags || [] });
+        if (!onTrip[cat.name + '|' + it.name.toLowerCase()]) out.push({ name: it.name, category: cat.name, tags: it.tags || [], hideOn: it.hideOn || [] });
       });
     });
     return out.sort(byName);
   }
-  function scopeLabel(tags){
-    if (!tags || !tags.length) return 'Every trip';
-    return 'Only ' + tags.map(tripTypeName).join(' or ') + ' trips';
+  function scopeLabel(it){
+    var tags = it.tags || [], hide = it.hideOn || [];
+    var names = function(ids){ return ids.map(tripTypeName).join(' or '); };
+    if (!tags.length) return hide.length ? 'Every trip except ' + names(hide) : 'Every trip';
+    return 'Only ' + names(tags) + ' trips' + (hide.length ? ', never ' + names(hide) : '');
+  }
+  function isLimited(it){ return !!((it.tags && it.tags.length) || (it.hideOn && it.hideOn.length)); }
+  function isLeaveCat(catName){
+    return state.master.categories.some(function(c){ return c.leaveDay && c.name === catName; });
   }
   function countForTypes(tripTypeIds){
     var included = 0, left = [];
     state.master.categories.forEach(function(cat){
       cat.items.forEach(function(it){
-        var tags = it.tags || [];
-        if (!tags.length || tags.some(function(t){ return tripTypeIds.indexOf(t) !== -1; })) included++;
+        if (itemQualifies(it, tripTypeIds)) included++;
         else left.push(it);
       });
     });
@@ -1206,15 +1279,21 @@
       byCat[it.category].push(it);
     });
 
+    // The leave-day checklist always comes last: it's what you run through
+    // on the way out the door, after the bag is done.
+    var leaveCats = order.filter(isLeaveCat);
+    order = order.filter(function(n){ return !isLeaveCat(n); }).concat(leaveCats);
+
     order.forEach(function(catName){
       var items = byCat[catName];
+      var leave = isLeaveCat(catName);
       var pending = sortPending(items.filter(function(it){ return it.status === 'pending'; }));
-      out += '<section class="category"><div class="category-head"><h2 class="eyebrow">' + esc(catName) + '</h2>' +
+      out += '<section class="category' + (leave ? ' leave-day' : '') + '"><div class="category-head"><h2 class="eyebrow">' + (leave ? ICONS.door : '') + esc(catName) + '</h2>' +
         '<span class="cat-count mono">' + (pending.length ? pending.length + ' to go' : 'Done') + '</span></div><div class="list-card">';
       if (pending.length === 0){
-        out += '<div class="all-done">' + ICONS.check + ' All set in ' + esc(catName) + '</div>';
+        out += '<div class="all-done">' + ICONS.check + (leave ? ' Ready to go' : ' All set in ' + esc(catName)) + '</div>';
       } else {
-        pending.forEach(function(it){ out += itemRow(it); });
+        pending.forEach(function(it){ out += itemRow(it, leave); });
       }
       out += addRow('add-item', 'data-trip="' + trip.id + '" data-cat="' + esc(catName) + '"', 'Add to ' + catName);
       out += '</div></section>';
@@ -1224,16 +1303,17 @@
     var ignoredItems = sortPending(trip.items.filter(function(it){ return it.status === 'ignored'; }));
 
     out += '<div class="ledgers">';
-    out += ledger('packed', trip.id, 'Packed', packedItems.length, ledgerRows(packedItems, 'packed'));
+    var hasTasks = trip.items.some(function(it){ return isLeaveCat(it.category); });
+    out += ledger('packed', trip.id, hasTasks ? 'Packed & done' : 'Packed', packedItems.length, ledgerRows(packedItems, 'packed'));
     out += ledger('ignored', trip.id, 'Not needed', ignoredItems.length, ledgerRows(ignoredItems, 'ignored'));
     var leftOff = itemsLeftOffTrip(trip);
     out += ledger('leftoff', trip.id, 'Left off this trip', leftOff.length, leftOff.map(function(x){
       return '<div class="ledger-row"><span class="pill"><span class="item-label">' + esc(x.name) +
-          '<span class="left-off-why">' + esc(x.category) + ' · ' + esc(scopeLabel(x.tags)) + '</span></span></span>' +
+          '<span class="left-off-why">' + esc(x.category) + ' · ' + esc(scopeLabel(x)) + '</span></span></span>' +
         '<button class="undo-btn" data-action="add-left-off" data-name="' + esc(x.name) + '" data-cat="' + esc(x.category) + '">Add</button></div>';
     }).join(''), 'Everything on your master list is on this trip.');
     out += '</div>';
-    out += '<p class="hint">"Left off" lists master-list items tagged for trip types this trip doesn\'t have. Add any one back with a tap, or edit the trip to change its types.</p>';
+    out += '<p class="hint">"Left off" lists master-list items whose trip types don\'t match this trip. Add any one back with a tap, or edit the trip to change its types.</p>';
 
     return out;
   }
@@ -1244,13 +1324,14 @@
       '<button type="submit" aria-label="Add">' + ICONS.plus + '</button></form>';
   }
 
-  function itemRow(it){
+  function itemRow(it, isTask){
     var leaving = leavingRows[it.id];
+    var doneWord = isTask ? 'Done' : 'Packed';
     return '<div class="item-row' + (leaving ? ' row-leaving' + (leaving === 'ignored' ? ' to-skip' : '') : '') + '" data-row-item="' + it.id + '">' +
       '<span class="item-name">' + esc(it.name) + '</span>' +
       '<span class="row-actions">' +
         '<button class="status-btn skip' + (leaving === 'ignored' ? ' chosen' : '') + '" data-action="set-status" data-item="' + it.id + '" data-status="ignored" aria-label="Not needed: ' + esc(it.name) + '" title="Not needed">' + ICONS.minus + '</button>' +
-        '<button class="status-btn pack' + (leaving === 'packed' ? ' chosen' : '') + '" data-action="set-status" data-item="' + it.id + '" data-status="packed" aria-label="Packed: ' + esc(it.name) + '" title="Packed">' + ICONS.check + '</button>' +
+        '<button class="status-btn pack' + (leaving === 'packed' ? ' chosen' : '') + '" data-action="set-status" data-item="' + it.id + '" data-status="packed" aria-label="' + doneWord + ': ' + esc(it.name) + '" title="' + doneWord + '">' + ICONS.check + '</button>' +
       '</span>' +
     '</div>';
   }
@@ -1302,10 +1383,11 @@
     out += '<form class="add-cat-row" data-action="add-type">' +
       '<input type="text" name="typeName" placeholder="New trip type (e.g. Camping)" aria-label="New trip type" autocomplete="off" autocapitalize="words">' +
       '<button type="submit" class="btn btn-secondary btn-sm">Add</button></form>';
-    out += '<p class="hint"><strong>Untagged items go on every trip.</strong> Tagging an item with a trip type limits it to trips of that type, so only tag things you\'d leave behind otherwise.</p>';
+    out += '<p class="hint"><strong>Items go on every trip unless you say otherwise.</strong> Tap an item to keep it to certain trip types, or to leave it off one (say, the suit on Personal trips).</p>';
 
     out += '<div class="section-title eyebrow">Categories</div>';
     state.master.categories.forEach(function(cat){ out += masterCategoryCard(cat); });
+    out += starterCard();
 
     out += '<form class="add-cat-row" data-action="add-master-category">' +
       '<input type="text" name="catName" placeholder="New category (e.g. Sports Gear)" aria-label="New category" autocomplete="off" autocapitalize="words">' +
@@ -1315,10 +1397,10 @@
 
   function masterCategoryCard(cat){
     var open = state.ui.openCategories[cat.id] !== false;
-    var limited = cat.items.filter(function(it){ return it.tags && it.tags.length; }).length;
+    var limited = cat.items.filter(isLimited).length;
     var out = '<div class="tpl-card">';
     out += '<div class="tpl-head" data-action="toggle-category" data-id="' + cat.id + '" role="button" aria-expanded="' + (open ? 'true' : 'false') + '">' +
-      '<div><h3>' + esc(cat.name) + '</h3><div class="trip-meta">' + cat.items.length + (cat.items.length === 1 ? ' item' : ' items') +
+      '<div><h3>' + esc(cat.name) + '</h3><div class="trip-meta">' + (cat.leaveDay ? 'Leave-day checklist · ' : '') + cat.items.length + (cat.items.length === 1 ? ' item' : ' items') +
         (limited ? ' · ' + limited + ' trip-specific' : '') + '</div></div>' +
       '<span class="chev" style="' + (open?'transform:rotate(90deg);':'') + '">' + ICONS.chev + '</span>' +
     '</div>';
@@ -1326,7 +1408,7 @@
       out += '<div class="tpl-body">';
       cat.items.slice().sort(byName).forEach(function(it){ out += masterItemRow(cat.id, it); });
       out += addRow('add-master-item', 'data-cat="' + cat.id + '"', 'Add to ' + cat.name);
-      out += '<div class="tpl-footer"><span class="trip-meta" style="margin:0;">Tap a type to limit an item to it.</span>' +
+      out += '<div class="tpl-footer"><span class="trip-meta" style="margin:0;">Tap an item to rename it or set its trips.</span>' +
         '<button class="btn-danger-ghost" data-action="delete-master-category" data-id="' + cat.id + '">Delete</button></div>';
       out += '</div>';
     }
@@ -1334,20 +1416,95 @@
     return out;
   }
 
+  // Rows open an edit sheet rather than carrying inline tag chips — a
+  // stray tap on a chip is how an everyday item used to vanish from
+  // trips without anyone noticing.
   function masterItemRow(catId, it){
-    var tags = it.tags || [];
-    var tagsHtml = state.tripTypes.map(function(tt){
-      var active = tags.indexOf(tt.id) !== -1;
-      return '<button type="button" class="chip' + (active?' active':'') + '" data-action="toggle-item-tag" data-cat="' + catId + '" data-item="' + it.id + '" data-type="' + tt.id + '" aria-pressed="' + (active ? 'true' : 'false') + '">' + esc(tt.name) + '</button>';
-    }).join('');
-    return '<div class="tpl-item-row">' +
-      '<div class="tpl-item-row-top">' +
-        '<span class="tpl-item-name">' + esc(it.name) +
-          '<span class="scope' + (tags.length ? ' limited' : '') + '">' + esc(scopeLabel(tags)) + '</span></span>' +
-        '<button class="icon-x" data-action="delete-master-item" data-cat="' + catId + '" data-item="' + it.id + '" aria-label="Delete ' + esc(it.name) + '">' + ICONS.x + '</button>' +
-      '</div>' +
-      (state.tripTypes.length ? '<div class="chip-row">' + tagsHtml + '</div>' : '') +
-    '</div>';
+    return '<button type="button" class="tpl-item-row" data-action="open-item" data-cat="' + catId + '" data-item="' + it.id + '">' +
+      '<span class="tpl-item-name">' + esc(it.name) +
+        '<span class="scope' + (isLimited(it) ? ' limited' : '') + '">' + esc(scopeLabel(it)) + '</span></span>' +
+      ICONS.chev +
+    '</button>';
+  }
+
+  // Common items a frequent traveler tends to want, offered one tap at a
+  // time on the Master List. Anything already on the list — compared
+  // ignoring case, punctuation and a plural "s" — is never offered.
+  var STARTER_ITEMS = [
+    { cat: 'Essentials', name: 'Wallet' },
+    { cat: 'Essentials', name: "Driver's License" },
+    { cat: 'Essentials', name: 'Keys' },
+    { cat: 'Essentials', name: 'Glasses' },
+    { cat: 'Essentials', name: 'Prescription Medications' },
+    { cat: 'Clothing', name: 'Tie' },
+    { cat: 'Clothing', name: 'Collar Stays' },
+    { cat: 'Clothing', name: 'Cufflinks' },
+    { cat: 'Clothing', name: 'Undershirts' },
+    { cat: 'Clothing', name: 'Scarf', tags: ['cold'] },
+    { cat: 'Clothing', name: 'Boots', tags: ['cold'] },
+    { cat: 'Clothing', name: 'Warm Socks', tags: ['cold'] },
+    { cat: 'Clothing', name: 'Hat', tags: ['personal'] },
+    { cat: 'Toiletries', name: 'Toiletry Bag' },
+    { cat: 'Toiletries', name: 'Shaving Cream' },
+    { cat: 'Toiletries', name: 'Hair Product' },
+    { cat: 'Toiletries', name: 'Cologne' },
+    { cat: 'Toiletries', name: 'Contact Lenses' },
+    { cat: 'Toiletries', name: 'Advil' },
+    { cat: 'Toiletries', name: 'Band-Aids' },
+    { cat: 'Toiletries', name: 'Hand Sanitizer' },
+    { cat: 'Toiletries', name: 'After-Sun Lotion', tags: ['personal'] },
+    { cat: 'Electronics', name: 'Charging Cables' },
+    { cat: 'Electronics', name: 'Wall Charger Block' },
+    { cat: 'Electronics', name: 'HDMI Adapter' },
+    { cat: 'Electronics', name: 'Presentation Clicker' },
+    { cat: 'Documents & Work', name: 'Business Cards' },
+    { cat: 'Documents & Work', name: 'Pen' },
+    { cat: 'Documents & Work', name: 'Passport Copy', tags: ['international'] },
+    { cat: 'Documents & Work', name: 'Global Entry Card', tags: ['international'] },
+    { cat: 'Documents & Work', name: 'No-Fee Credit Card', tags: ['international'] },
+    { cat: 'Documents & Work', name: 'Local Currency', tags: ['international'] },
+    { cat: 'Documents & Work', name: 'eSIM / Data Plan', tags: ['international'] },
+    { cat: 'Extras', name: 'Laundry Bag' },
+    { cat: 'Extras', name: 'Water Bottle' },
+    { cat: 'Extras', name: 'Umbrella' },
+    { cat: 'Extras', name: 'Wrinkle Release Spray' },
+    { cat: 'Extras', name: 'Beach Bag', tags: ['personal'] }
+  ];
+  function looseKey(name){
+    return String(name).toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s$/, '');
+  }
+  function starterSuggestions(){
+    var have = {};
+    state.master.categories.forEach(function(c){ c.items.forEach(function(it){ have[looseKey(it.name)] = true; }); });
+    return STARTER_ITEMS.filter(function(s){
+      if (have[looseKey(s.name)]) return false;
+      // A suggestion meant for a trip type this device doesn't have would
+      // otherwise land on every trip — leave it out instead.
+      return !s.tags || s.tags.some(getTripType);
+    }).map(function(s){
+      return { cat: s.cat, name: s.name, tags: (s.tags || []).filter(getTripType) };
+    });
+  }
+  function starterCard(){
+    var list = starterSuggestions();
+    if (!list.length) return '';
+    var open = state.ui.openCategories.__starter === true;
+    var out = '<div class="section-title eyebrow">Suggestions</div><div class="tpl-card">';
+    out += '<div class="tpl-head" data-action="toggle-category" data-id="__starter" role="button" aria-expanded="' + open + '">' +
+      '<div><h3>Common Travel Items</h3><div class="trip-meta">' + list.length + ' not on your list yet</div></div>' +
+      '<span class="chev" style="' + (open ? 'transform:rotate(90deg);' : '') + '">' + ICONS.chev + '</span></div>';
+    if (open){
+      out += '<div class="tpl-body">';
+      var lastCat = null;
+      list.forEach(function(s){
+        if (s.cat !== lastCat){ out += '<div class="eyebrow starter-cat">' + esc(s.cat) + '</div>'; lastCat = s.cat; }
+        out += '<div class="ledger-row"><span class="item-label" style="color:var(--ink);">' + esc(s.name) +
+            '<span class="scope' + (s.tags.length ? ' limited' : '') + '">' + esc(scopeLabel(s)) + '</span></span>' +
+          '<button class="undo-btn" data-action="add-starter" data-name="' + esc(s.name) + '">Add</button></div>';
+      });
+      out += '</div>';
+    }
+    return out + '</div>';
   }
 
   // ---------- Date range picker ----------
@@ -1484,6 +1641,37 @@
         '</form>';
     }
 
+    if (m.type === 'editItem'){
+      var eiCat = findMasterCat(m.catId), eiItem = eiCat && findMasterItem(eiCat, m.itemId);
+      if (!eiItem){ state.modal = null; return; }
+      var onlyOn = eiItem.tags || [], neverOn = eiItem.hideOn || [];
+      var typeChips = function(name, picked){
+        return state.tripTypes.map(function(tt){
+          return '<label><input type="checkbox" name="' + name + '" value="' + tt.id + '"' + (picked.indexOf(tt.id) !== -1 ? ' checked' : '') + '><span class="chip">' + esc(tt.name) + '</span></label>';
+        }).join('');
+      };
+      box.innerHTML = '<h2>Edit Item</h2>' +
+        '<form id="item-form">' +
+          '<label class="field">Name<input type="text" name="itemName" value="' + esc(eiItem.name) + '" required autocomplete="off" autocapitalize="words" enterkeyhint="done"></label>' +
+          (state.tripTypes.length ?
+            '<div class="field" style="margin-bottom:8px;"><span class="field-label">Goes on</span></div>' +
+            '<div class="seg" role="radiogroup">' +
+              '<label><input type="radio" name="scope" value="all"' + (onlyOn.length ? '' : ' checked') + '><span>Every trip</span></label>' +
+              '<label><input type="radio" name="scope" value="only"' + (onlyOn.length ? ' checked' : '') + '><span>Only some trips</span></label>' +
+            '</div>' +
+            '<div class="type-pick" id="onlyPick"' + (onlyOn.length ? '' : ' hidden') + '>' + typeChips('onlyOn', onlyOn) + '</div>' +
+            '<div class="field" style="margin:14px 0 8px;"><span class="field-label">Never on <span class="trip-meta" style="display:inline;font-weight:400;">(optional)</span></span></div>' +
+            '<div class="type-pick never-pick">' + typeChips('neverOn', neverOn) + '</div>'
+          : '<p class="sheet-note" style="margin:0 0 16px;">Add trip types on the Master List to keep items to certain trips.</p>') +
+          '<p class="scope-summary" id="scopeSummary"></p>' +
+          '<div class="modal-actions">' +
+            '<button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>' +
+            '<button type="submit" class="btn btn-primary">Save</button>' +
+          '</div>' +
+          '<button type="button" class="btn-danger-ghost sheet-delete" data-action="delete-master-item" data-cat="' + eiCat.id + '" data-item="' + eiItem.id + '">Delete Item</button>' +
+        '</form>';
+    }
+
     if (m.type === 'export'){
       box.innerHTML = '<h2>Export Master List</h2>' +
         '<p class="sheet-note">Copy this and send it to Claude to lock it in as the app\'s built-in defaults.</p>' +
@@ -1504,6 +1692,55 @@
       });
     }
 
+    if (m.type === 'editItem'){
+      var itemForm = box.querySelector('#item-form');
+      var picked = function(name){
+        return Array.prototype.map.call(itemForm.querySelectorAll('input[name="' + name + '"]:checked'), function(i){ return i.value; });
+      };
+      // Draft of what Save would store: "only some trips" with nothing
+      // ticked would put the item on no trip, so it counts as every trip.
+      var draft = function(){
+        var scopeEl = itemForm.querySelector('input[name="scope"]:checked');
+        var only = scopeEl && scopeEl.value === 'only' ? picked('onlyOn') : [];
+        return { tags: only, hideOn: picked('neverOn') };
+      };
+      var updateItemSummary = function(){
+        var scopeEl = itemForm.querySelector('input[name="scope"]:checked');
+        var onlyPick = itemForm.querySelector('#onlyPick');
+        if (onlyPick) onlyPick.hidden = !(scopeEl && scopeEl.value === 'only');
+        var d = draft();
+        var warn = scopeEl && scopeEl.value === 'only' && !d.tags.length;
+        itemForm.querySelector('#scopeSummary').innerHTML = warn
+          ? 'Pick at least one trip type, or it will go on every trip.'
+          : '<strong' + (isLimited(d) ? ' class="limited"' : '') + '>' + esc(scopeLabel(d)) + '</strong>';
+      };
+      itemForm.addEventListener('change', function(e){
+        // A type can't be both "only on" and "never on" — the latest tap wins.
+        var other = e.target.name === 'onlyOn' ? 'neverOn' : e.target.name === 'neverOn' ? 'onlyOn' : null;
+        if (other && e.target.checked){
+          var twin = itemForm.querySelector('input[name="' + other + '"][value="' + e.target.value + '"]');
+          if (twin) twin.checked = false;
+        }
+        updateItemSummary();
+      });
+      updateItemSummary();
+      itemForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        var cat = findMasterCat(m.catId), it = cat && findMasterItem(cat, m.itemId);
+        if (!it){ closeModal(); return; }
+        var newName = tidyName(itemForm.querySelector('input[name="itemName"]').value) || it.name;
+        var clash = cat.items.some(function(x){ return x !== it && x.name.toLowerCase() === newName.toLowerCase(); });
+        if (clash){ showToast(newName + ' is already in ' + cat.name); return; }
+        var d = draft();
+        it.name = newName;
+        it.tags = d.tags;
+        it.hideOn = d.hideOn;
+        showToast(it.name + ': ' + scopeLabel(it));
+        save();
+        closeModal();
+      });
+    }
+
     if (m.type === 'newTrip'){
       var ntForm = box.querySelector('#new-trip-form'), ntPreview = box.querySelector('#ntPreview');
       // Shows exactly what the chosen types will include and leave out,
@@ -1514,8 +1751,8 @@
         var r = countForTypes(ids);
         var html = '<strong>' + r.included + ' items</strong> will be on this trip';
         if (r.left.length){
-          html += '<details><summary>' + r.left.length + ' left out (tagged for other trip types)</summary><ul>' +
-            r.left.map(function(it){ return '<li>' + esc(it.name) + ' <span style="opacity:.7">· ' + esc(scopeLabel(it.tags)) + '</span></li>'; }).join('') +
+          html += '<details><summary>' + r.left.length + ' left out by trip type</summary><ul>' +
+            r.left.map(function(it){ return '<li>' + esc(it.name) + ' <span style="opacity:.7">· ' + esc(scopeLabel(it)) + '</span></li>'; }).join('') +
           '</ul></details>';
         }
         ntPreview.innerHTML = html;
@@ -1608,6 +1845,12 @@
   });
 
   // ---------- Actions ----------
+  function findMasterCat(id){
+    return state.master.categories.filter(function(c){ return c.id === id; })[0] || null;
+  }
+  function findMasterItem(cat, id){
+    return cat.items.filter(function(i){ return i.id === id; })[0] || null;
+  }
   function findItem(trip, itemId){
     for (var i=0;i<trip.items.length;i++) if (trip.items[i].id === itemId) return trip.items[i];
     return null;
@@ -1694,7 +1937,7 @@
           el.classList.add('chosen');
         }
         if (navigator.vibrate){ try{ navigator.vibrate(8); }catch(err){} }
-        showToast(newStatus === 'packed' ? 'Packed: ' + it.name : 'Not needed: ' + it.name);
+        showToast((newStatus === 'packed' ? (isLeaveCat(it.category) ? 'Done: ' : 'Packed: ') : 'Not needed: ') + it.name);
         ensureAudio();
         setTimeout(function(){
           delete leavingRows[it.id];
@@ -1740,7 +1983,8 @@
 
     if (action === 'toggle-category'){
       var cid = el.getAttribute('data-id');
-      var currentlyOpen = state.ui.openCategories[cid] !== false;
+      // Master categories start open; the suggestions card starts closed.
+      var currentlyOpen = cid === '__starter' ? state.ui.openCategories[cid] === true : state.ui.openCategories[cid] !== false;
       state.ui.openCategories[cid] = !currentlyOpen;
       save(); render(); return;
     }
@@ -1757,28 +2001,40 @@
       var delItem = cat3.items.filter(function(it){ return it.id === el.getAttribute('data-item'); })[0];
       if (!delItem || !confirm('Remove "' + delItem.name + '" from your master list?')) return;
       cat3.items = cat3.items.filter(function(it){ return it.id !== delItem.id; });
-      save(); render(); return;
+      save();
+      if (state.modal) closeModal(); else render();
+      return;
     }
-    if (action === 'toggle-item-tag'){
-      var cat4 = state.master.categories.filter(function(c){ return c.id === el.getAttribute('data-cat'); })[0];
-      if (!cat4) return;
-      var it4 = cat4.items.filter(function(i){ return i.id === el.getAttribute('data-item'); })[0];
-      if (!it4) return;
-      if (!it4.tags) it4.tags = [];
-      var typeId = el.getAttribute('data-type');
-      var idx = it4.tags.indexOf(typeId);
-      if (idx === -1) it4.tags.push(typeId); else it4.tags.splice(idx, 1);
-      showToast(it4.name + ': ' + scopeLabel(it4.tags));
+    if (action === 'open-item'){
+      openModal({ type: 'editItem', catId: el.getAttribute('data-cat'), itemId: el.getAttribute('data-item') });
+      return;
+    }
+    if (action === 'add-starter'){
+      var sug = starterSuggestions().filter(function(x){ return x.name === el.getAttribute('data-name'); })[0];
+      if (!sug) return;
+      var sCatObj = state.master.categories.filter(function(c){ return c.name === sug.cat; })[0];
+      if (!sCatObj){
+        sCatObj = { id: uid(), name: sug.cat, items: [] };
+        // Keep the leave-day checklist as the last category.
+        var leaveIdx = -1;
+        state.master.categories.forEach(function(c, i){ if (c.leaveDay) leaveIdx = i; });
+        if (leaveIdx === -1) state.master.categories.push(sCatObj); else state.master.categories.splice(leaveIdx, 0, sCatObj);
+      }
+      sCatObj.items.push({ id: uid(), name: sug.name, tags: sug.tags.slice() });
+      showToast(sug.name + ' added to ' + sug.cat);
       save(); render(); return;
     }
     if (action === 'delete-type'){
       var typeId2 = el.getAttribute('data-id');
       var tt = getTripType(typeId2);
       if (!tt) return;
-      if (!confirm('Remove trip type "' + tt.name + '"? It will be untagged from any items.')) return;
+      if (!confirm('Remove trip type "' + tt.name + '"? Items limited to it will go back to every trip.')) return;
       state.tripTypes = state.tripTypes.filter(function(t){ return t.id !== typeId2; });
       state.master.categories.forEach(function(c){
-        c.items.forEach(function(it){ if (it.tags) it.tags = it.tags.filter(function(t){ return t !== typeId2; }); });
+        c.items.forEach(function(it){
+          if (it.tags) it.tags = it.tags.filter(function(t){ return t !== typeId2; });
+          if (it.hideOn) it.hideOn = it.hideOn.filter(function(t){ return t !== typeId2; });
+        });
       });
       save(); render(); return;
     }
