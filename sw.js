@@ -1,4 +1,4 @@
-const CACHE = 'manifest-v19';
+const CACHE = 'manifest-v20';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 // GitHub Pages serves everything with Cache-Control: max-age=600, which we
@@ -32,7 +32,10 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const network = fetch(e.request, { cache: 'no-store' }).then((res) => {
-        if (res && res.status === 200) {
+        // Google Fonts responses are cross-origin (opaque, status 0); cache
+        // them too so the app keeps its typeface offline.
+        const isFont = /fonts\.(googleapis|gstatic)\.com$/.test(new URL(e.request.url).hostname);
+        if (res && (res.status === 200 || (isFont && res.type === 'opaque'))) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(e.request, copy));
         }
